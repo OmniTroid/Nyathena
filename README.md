@@ -7,6 +7,7 @@ Athena was created with a few core principles in mind:
 
 ## Features
 * WebAO support
+* WebSocket Secure (WSS) support for encrypted connections via Cloudflare
 * Concurrent handling of client connections
 * A moderator user system with configurable roles to set permissions
 * A robust command system
@@ -25,3 +26,17 @@ Run the executable and setup your initial moderator account with `mkusr`.
 By default, athena looks for its configuration files in the `config` directory.<br>
 If you'd like to store your configuration files elsewhere, you can pass the `-c` flag on startup with the path to your configuration directory.<br>
 CLI input can be disabled with `-nocli`
+
+### WebSocket Secure (WSS) Configuration
+To enable secure WebSocket connections (required for Cloudflare and other proxies):
+
+1. Obtain TLS certificates (e.g., from Let's Encrypt or Cloudflare)
+2. In `config.toml`, set:
+   ```toml
+   enable_webao_secure = true
+   webao_secure_port = 443  # or your preferred port
+   tls_cert_path = "/path/to/your/certificate.crt"
+   tls_key_path = "/path/to/your/private.key"
+   ```
+3. When advertising to the master server, your server will be listed with `wss://` support
+4. Cloudflare users can now connect through port 443 with encrypted connections

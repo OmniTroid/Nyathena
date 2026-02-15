@@ -144,6 +144,9 @@ func InitServer(conf *settings.Config) error {
 		if config.EnableWS {
 			advert.WSPort = config.WSPort
 		}
+		if config.EnableWSS {
+			advert.WSSPort = config.WSSPort
+		}
 		go ms.Advertise(config.MSAddr, advert, updatePlayers, advertDone)
 	}
 	initCommands()
@@ -184,9 +187,45 @@ func ListenWS() {
 	logger.LogDebug("WS listener started.")
 	defer listener.Close()
 
-	s := &http.Server{}
-	http.HandleFunc("/", HandleWS)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", HandleWS)
+	s := &http.Server{
+		Handler: mux,
+	}
 	err = s.Serve(listener)
+	if err != http.ErrServerClosed {
+		FatalError <- err
+	}
+}
+
+// ListenWSS starts the server's secure websocket listener.
+// If TLS certificate and key paths are provided, it serves with TLS (direct HTTPS).
+// If not provided, it serves plain HTTP (useful when behind a reverse proxy like Cloudflare).
+func ListenWSS() {
+	listener, err := net.Listen("tcp", config.Addr+":"+strconv.Itoa(config.WSSPort))
+	if err != nil {
+		FatalError <- err
+		return
+	}
+	logger.LogDebug("WSS listener started.")
+	defer listener.Close()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", HandleWS)
+	s := &http.Server{
+		Handler: mux,
+	}
+	
+	// Use TLS if certificate and key paths are provided, otherwise serve plain HTTP
+	// (useful when behind a reverse proxy that handles TLS termination)
+	if config.TLSCertPath != "" && config.TLSKeyPath != "" {
+		logger.LogDebugf("WSS using TLS with cert: %s", config.TLSCertPath)
+		err = s.ServeTLS(listener, config.TLSCertPath, config.TLSKeyPath)
+	} else {
+		logger.LogDebug("WSS using plain HTTP (expecting reverse proxy for TLS)")
+		err = s.Serve(listener)
+	}
+	
 	if err != http.ErrServerClosed {
 		FatalError <- err
 	}

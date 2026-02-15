@@ -106,6 +106,13 @@ func InitServer(conf *settings.Config) error {
 		return fmt.Errorf("failed to parse default_ban_duration: %v", err.Error())
 	}
 
+	// Validate WSS configuration.
+	if config.EnableWSS {
+		if config.TLSCertPath == "" || config.TLSKeyPath == "" {
+			return fmt.Errorf("enable_webao_secure is true but tls_cert_path or tls_key_path is not set")
+		}
+	}
+
 	// Discord webhook.
 	if config.WebhookURL != "" {
 		enableDiscord = true
@@ -205,8 +212,9 @@ func ListenWSS() {
 	logger.LogDebug("WSS listener started.")
 	defer listener.Close()
 
-	s := &http.Server{}
-	http.HandleFunc("/wss", HandleWS)
+	s := &http.Server{
+		Handler: http.HandlerFunc(HandleWS),
+	}
 	err = s.ServeTLS(listener, config.TLSCertPath, config.TLSKeyPath)
 	if err != http.ErrServerClosed {
 		FatalError <- err

@@ -403,6 +403,16 @@ func pktIC(client *Client, p *packet.Packet) {
 		client.SetShowname(args[15])
 	}
 	client.Area().SetLastSpeaker(client.CharID())
+	
+	// Track tournament message count
+	if tournamentActive {
+		tournamentMutex.Lock()
+		if participant, exists := tournamentParticipants[client.Uid()]; exists {
+			participant.messageCount++
+		}
+		tournamentMutex.Unlock()
+	}
+	
 	writeToArea(client.Area(), "MS", args...)
 	addToBuffer(client, "IC", "\""+args[4]+"\"", false)
 }

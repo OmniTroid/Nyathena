@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/MangosArentLiterature/Athena/internal/area"
@@ -58,13 +59,29 @@ var (
 	updatePlayers                                     = make(chan int)      // Updates the advertiser's player count.
 	advertDone                                        = make(chan struct{}) // Signals the advertiser to stop.
 	FatalError                                        = make(chan error)    // Signals that the server should stop after a fatal error.
+	
+	// Tournament mode state
+	tournamentActive     bool
+	tournamentMutex      sync.Mutex
+	tournamentStartTime  time.Time
+	tournamentParticipants map[int]*TournamentParticipant // uid -> participant data
 )
+
+// TournamentParticipant tracks a user's tournament performance
+type TournamentParticipant struct {
+	uid          int
+	messageCount int
+	joinedAt     time.Time
+}
 
 // InitServer initalizes the server's database, uids, configs, and advertiser.
 func InitServer(conf *settings.Config) error {
 	db.Open()
 	uids.InitHeap(conf.MaxPlayers)
 	config = conf
+	
+	// Initialize tournament state
+	tournamentParticipants = make(map[int]*TournamentParticipant)
 
 	// Load server data.
 	var err error
@@ -273,6 +290,13 @@ func writeToArea(area *area.Area, header string, contents ...string) {
 		if client.Area() == area {
 			client.SendPacket(header, contents...)
 		}
+	}
+}
+
+// writeToAllClients writes a packet to all connected clients
+func writeToAllClients(header string, contents ...string) {
+	for client := range clients.GetAllClients() {
+		client.SendPacket(header, contents...)
 	}
 }
 

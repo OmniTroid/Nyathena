@@ -41,3 +41,15 @@ func (cl *ClientList) RemoveClient(c *Client) {
 func (cl *ClientList) GetAllClients() map[*Client]struct{} {
 	return cl.list
 }
+
+// GetClientByUID returns a client by their UID, or nil if not found.
+func (cl *ClientList) GetClientByUID(uid int) *Client {
+	cl.mu.Lock()
+	defer cl.mu.Unlock()
+	for client := range cl.list {
+		if client.Uid() == uid {
+			return client
+		}
+	}
+	return nil
+}

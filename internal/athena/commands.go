@@ -706,6 +706,27 @@ func initCommands() {
 			desc:     "Removes punishment(s) from user(s).",
 			reqPerms: permissions.PermissionField["MUTE"],
 		},
+		"stack": {
+			handler:  cmdStack,
+			minArgs:  2,
+			usage:    "Usage: /stack <punishment1> <punishment2> [<punishment3>...] [-d duration] [-r reason] <uid1>,<uid2>...",
+			desc:     "Applies multiple punishment effects to user(s) simultaneously.",
+			reqPerms: permissions.PermissionField["MUTE"],
+		},
+		"tournament": {
+			handler:  cmdTournament,
+			minArgs:  1,
+			usage:    "Usage: /tournament <start|stop|status>",
+			desc:     "Manages punishment tournament mode.",
+			reqPerms: permissions.PermissionField["MUTE"],
+		},
+		"join-tournament": {
+			handler:  cmdJoinTournament,
+			minArgs:  0,
+			usage:    "Usage: /join-tournament",
+			desc:     "Join the active punishment tournament.",
+			reqPerms: permissions.PermissionField["NONE"],
+		},
 	}
 }
 
@@ -2600,4 +2621,257 @@ func parsePunishmentType(s string) PunishmentType {
 	default:
 		return PunishmentNone
 	}
+}
+
+// cmdStack applies multiple punishment effects to user(s) simultaneously
+func cmdStack(client *Client, args []string, usage string) {
+	flags := flag.NewFlagSet("", 0)
+	flags.SetOutput(io.Discard)
+	reason := flags.String("r", "", "")
+	durationStr := flags.String("d", "10m", "")
+	flags.Parse(args)
+
+	if len(flags.Args()) < 2 {
+		client.SendServerMessage("Not enough arguments:\n" + usage)
+		return
+	}
+
+	// Parse duration
+	duration, err := str2duration.ParseDuration(*durationStr)
+	if err != nil {
+		client.SendServerMessage("Invalid duration format. Use format like: 10m, 1h, 30s")
+		return
+	}
+
+	// Cap at 24 hours
+	maxDuration := 24 * time.Hour
+	if duration > maxDuration {
+		duration = maxDuration
+		client.SendServerMessage(fmt.Sprintf("Duration capped at 24 hours."))
+	}
+
+	// Parse punishment types (all args except the last one which is UIDs)
+	flagArgs := flags.Args()
+	if len(flagArgs) < 2 {
+		client.SendServerMessage("Not enough arguments:\n" + usage)
+		return
+	}
+
+	// Last argument is the UID list
+	uidStr := flagArgs[len(flagArgs)-1]
+	punishmentNames := flagArgs[:len(flagArgs)-1]
+
+	// Validate and parse all punishment types
+	var punishmentTypes []PunishmentType
+	for _, name := range punishmentNames {
+		pType := parsePunishmentType(name)
+		if pType == PunishmentNone {
+			client.SendServerMessage(fmt.Sprintf("Unknown punishment type: %v", name))
+			return
+		}
+		punishmentTypes = append(punishmentTypes, pType)
+	}
+
+	// Apply punishments to users
+	toPunish := getUidList(strings.Split(uidStr, ","))
+	var count int
+	var report string
+
+	msg := fmt.Sprintf("You have been punished with stacked effects: ")
+	punishmentNamesList := []string{}
+	for _, pType := range punishmentTypes {
+		punishmentNamesList = append(punishmentNamesList, "'"+pType.String()+"'")
+	}
+	msg += strings.Join(punishmentNamesList, ", ")
+
+	if duration > 0 {
+		msg += fmt.Sprintf(" for %v", duration)
+	}
+	if *reason != "" {
+		msg += " for reason: " + *reason
+	}
+
+	for _, c := range toPunish {
+		// Apply each punishment
+		for _, pType := range punishmentTypes {
+			c.AddPunishment(pType, duration, *reason)
+		}
+		c.SendServerMessage(msg)
+		count++
+		report += fmt.Sprintf("%v, ", c.Uid())
+	}
+
+	report = strings.TrimSuffix(report, ", ")
+	punishmentList := strings.Join(punishmentNamesList, ", ")
+	client.SendServerMessage(fmt.Sprintf("Applied stacked punishments [%v] to %v clients.", punishmentList, count))
+	addToBuffer(client, "CMD", fmt.Sprintf("Applied stacked punishments [%v] to %v.", punishmentList, report), false)
+}
+
+// cmdTournament manages punishment tournament mode
+func cmdTournament(client *Client, args []string, usage string) {
+	if len(args) < 1 {
+		client.SendServerMessage("Not enough arguments:\n" + usage)
+		return
+	}
+
+	action := strings.ToLower(args[0])
+
+	switch action {
+	case "start":
+		tournamentMutex.Lock()
+		defer tournamentMutex.Unlock()
+
+		if tournamentActive {
+			client.SendServerMessage("A tournament is already active.")
+			return
+		}
+
+		tournamentActive = true
+		tournamentStartTime = time.Now().UTC()
+		tournamentParticipants = make(map[int]*TournamentParticipant)
+
+		client.SendServerMessage("Tournament started! Users can now join with /join-tournament")
+		writeToAllClients("CT", "OOC", "🏆 TOURNAMENT STARTED! Join with /join-tournament to compete! Random punishments will be applied.")
+		addToBuffer(client, "CMD", "Started punishment tournament", false)
+
+	case "stop":
+		tournamentMutex.Lock()
+		defer tournamentMutex.Unlock()
+
+		if !tournamentActive {
+			client.SendServerMessage("No tournament is currently active.")
+			return
+		}
+
+		// Determine winner
+		var winner *TournamentParticipant
+		var winnerClient *Client
+		for uid, participant := range tournamentParticipants {
+			if winner == nil || participant.messageCount > winner.messageCount {
+				winner = participant
+				winnerClient = clients.GetClientByUID(uid)
+			}
+		}
+
+		tournamentActive = false
+
+		if winner != nil && winnerClient != nil {
+			duration := time.Since(tournamentStartTime).Round(time.Second)
+			announcement := fmt.Sprintf("🏆 TOURNAMENT ENDED! Winner: UID %d with %d messages over %v! Congratulations!",
+				winner.uid, winner.messageCount, duration)
+			writeToAllClients("CT", "OOC", announcement)
+			
+			// Remove all punishments from winner
+			winnerClient.RemoveAllPunishments()
+			winnerClient.SendServerMessage("Congratulations! Your tournament punishments have been removed.")
+		} else {
+			writeToAllClients("CT", "OOC", "🏆 TOURNAMENT ENDED! No participants.")
+		}
+
+		tournamentParticipants = make(map[int]*TournamentParticipant)
+		addToBuffer(client, "CMD", "Stopped punishment tournament", false)
+
+	case "status":
+		tournamentMutex.Lock()
+		defer tournamentMutex.Unlock()
+
+		if !tournamentActive {
+			client.SendServerMessage("No tournament is currently active.")
+			return
+		}
+
+		duration := time.Since(tournamentStartTime).Round(time.Second)
+		msg := fmt.Sprintf("🏆 TOURNAMENT STATUS (Running for %v)\n", duration)
+		msg += fmt.Sprintf("Participants: %d\n\n", len(tournamentParticipants))
+
+		// Build leaderboard sorted by message count
+		type leaderEntry struct {
+			uid      int
+			msgCount int
+			duration time.Duration
+		}
+		var leaderboard []leaderEntry
+		for uid, participant := range tournamentParticipants {
+			leaderboard = append(leaderboard, leaderEntry{
+				uid:      uid,
+				msgCount: participant.messageCount,
+				duration: time.Since(participant.joinedAt).Round(time.Second),
+			})
+		}
+
+		// Sort by message count (descending)
+		sort.Slice(leaderboard, func(i, j int) bool {
+			return leaderboard[i].msgCount > leaderboard[j].msgCount
+		})
+
+		msg += "LEADERBOARD:\n"
+		for i, entry := range leaderboard {
+			rank := i + 1
+			msg += fmt.Sprintf("%d. UID %d - %d messages (%v in tournament)\n",
+				rank, entry.uid, entry.msgCount, entry.duration)
+		}
+
+		client.SendServerMessage(msg)
+
+	default:
+		client.SendServerMessage("Invalid action. Use: start, stop, or status")
+	}
+}
+
+// cmdJoinTournament allows users to join the active tournament
+func cmdJoinTournament(client *Client, args []string, usage string) {
+	tournamentMutex.Lock()
+	defer tournamentMutex.Unlock()
+
+	if !tournamentActive {
+		client.SendServerMessage("No tournament is currently active.")
+		return
+	}
+
+	uid := client.Uid()
+	if _, exists := tournamentParticipants[uid]; exists {
+		client.SendServerMessage("You are already in the tournament!")
+		return
+	}
+
+	// Add participant
+	tournamentParticipants[uid] = &TournamentParticipant{
+		uid:          uid,
+		messageCount: 0,
+		joinedAt:     time.Now().UTC(),
+	}
+
+	// Apply 2-3 random punishments
+	allPunishments := []PunishmentType{
+		PunishmentBackward, PunishmentStutterstep, PunishmentElongate,
+		PunishmentUppercase, PunishmentLowercase, PunishmentRobotic,
+		PunishmentAlternating, PunishmentUwu, PunishmentPirate,
+		PunishmentConfused, PunishmentDrunk, PunishmentHiccup,
+	}
+
+	numPunishments := 2 + rand.Intn(2) // 2 or 3 punishments
+	selectedPunishments := []PunishmentType{}
+	
+	// Randomly select unique punishments
+	shuffled := make([]PunishmentType, len(allPunishments))
+	copy(shuffled, allPunishments)
+	rand.Shuffle(len(shuffled), func(i, j int) {
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	})
+
+	for i := 0; i < numPunishments && i < len(shuffled); i++ {
+		pType := shuffled[i]
+		selectedPunishments = append(selectedPunishments, pType)
+		client.AddPunishment(pType, 0, "Tournament Mode") // No expiration
+	}
+
+	// Build punishment list for message
+	punishmentNames := []string{}
+	for _, pType := range selectedPunishments {
+		punishmentNames = append(punishmentNames, pType.String())
+	}
+
+	client.SendServerMessage(fmt.Sprintf("🏆 Joined tournament! You've been given: %s", strings.Join(punishmentNames, ", ")))
+	writeToAllClients("CT", "OOC", fmt.Sprintf("🏆 UID %d joined the tournament!", uid))
+	addToBuffer(client, "TOURNAMENT", "Joined tournament", false)
 }

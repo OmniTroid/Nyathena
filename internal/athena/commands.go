@@ -1729,7 +1729,12 @@ func cmdPossess(client *Client, args []string, _ string) {
 	icArgs[12] = "0"                          // flipping
 	icArgs[13] = "0"                          // realization
 	icArgs[14] = "0"                          // text color
-	icArgs[15] = target.Showname()            // showname
+	// Use character name as showname if target's showname is empty
+	showname := target.Showname()
+	if strings.TrimSpace(showname) == "" {
+		showname = characters[target.CharID()]
+	}
+	icArgs[15] = showname                     // showname
 	icArgs[16] = "-1"                         // pair_id
 	icArgs[17] = ""                           // pair_charid (server pairing)
 	icArgs[18] = ""                           // pair_emote (server pairing)

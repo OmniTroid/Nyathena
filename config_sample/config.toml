@@ -26,6 +26,76 @@ tls_cert_path = ""
 # Path to TLS private key file (optional - leave empty if using a reverse proxy like Cloudflare).
 tls_key_path = ""
 
+# Set to true if running behind a reverse proxy (nginx, Apache, etc.)
+# When enabled, the master server will advertise the external ports instead of internal listening ports
+reverse_proxy_mode = false
+
+# External HTTP port exposed by reverse proxy (only used when reverse_proxy_mode = true)
+# This is the port clients connect to, not the internal listening port
+reverse_proxy_http_port = 80
+
+# External HTTPS port exposed by reverse proxy (only used when reverse_proxy_mode = true)
+# This is the port clients connect to, not the internal listening port
+reverse_proxy_https_port = 443
+
+# Example nginx configuration for reverse proxy setup:
+# When using reverse_proxy_mode, configure Athena to listen on an internal port (e.g., 3141)
+# and nginx to forward from external ports (80/443) to that internal port.
+# 
+# IMPORTANT: Both webao_port and webao_secure_port should be set to the SAME internal port (3141)
+# because nginx handles the external port routing (80 and 443) and forwards both to this single
+# internal port. Athena doesn't need separate ports since nginx performs the port demultiplexing.
+#
+# server {
+#     listen 80;
+#     server_name hatsune.miku.pizza;
+#     
+#     location / {
+#         proxy_pass http://localhost:3141;
+#         proxy_http_version 1.1;
+#         proxy_set_header Upgrade $http_upgrade;
+#         proxy_set_header Connection "Upgrade";
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#     }
+# }
+#
+# server {
+#     listen 443 ssl;
+#     server_name hatsune.miku.pizza;
+#     
+#     ssl_certificate /path/to/cert.pem;
+#     ssl_certificate_key /path/to/key.pem;
+#     
+#     location / {
+#         proxy_pass http://localhost:3141;
+#         proxy_http_version 1.1;
+#         proxy_set_header Upgrade $http_upgrade;
+#         proxy_set_header Connection "Upgrade";
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#     }
+# }
+#
+# With this setup, set:
+#   enable_webao = true
+#   webao_port = 3141                    # Internal port - where Athena actually listens
+#   enable_webao_secure = true
+#   webao_secure_port = 3141             # Same internal port - nginx routes both 80 and 443 here
+#   tls_cert_path = ""                   # Empty - nginx handles TLS termination
+#   tls_key_path = ""                    # Empty - nginx handles TLS termination
+#   reverse_proxy_mode = true            # Enable reverse proxy mode
+#   reverse_proxy_http_port = 80         # External port - what clients see for HTTP
+#   reverse_proxy_https_port = 443       # External port - what clients see for HTTPS
+#
+# The master server will then advertise:
+#   ws://hatsune.miku.pizza:80
+#   wss://hatsune.miku.pizza:443
+
 # The name of your server. This is used both on the server list, and within the server.
 name = "Unnamed Server"
 

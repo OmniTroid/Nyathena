@@ -142,10 +142,18 @@ func InitServer(conf *settings.Config) error {
 			Name:    config.Name,
 			Desc:    config.Desc}
 		if config.EnableWS {
-			advert.WSPort = config.WSPort
+			if config.ReverseProxyMode {
+				advert.WSPort = config.ReverseProxyHTTPPort
+			} else {
+				advert.WSPort = config.WSPort
+			}
 		}
 		if config.EnableWSS {
-			advert.WSSPort = config.WSSPort
+			if config.ReverseProxyMode {
+				advert.WSSPort = config.ReverseProxyHTTPSPort
+			} else {
+				advert.WSSPort = config.WSSPort
+			}
 		}
 		go ms.Advertise(config.MSAddr, advert, updatePlayers, advertDone)
 	}

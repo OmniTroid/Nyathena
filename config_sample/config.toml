@@ -5,6 +5,11 @@ addr = ""
 # The port to listen for connections on.
 port = 27016
 
+# The hostname or IP address to advertise to the master server.
+# If left blank, the master server will use the IP address from which the advertisement request is received.
+# Set this to your public hostname (e.g., "hatsune.miku.pizza") or IP address if the server is behind a VPS/proxy.
+advertise_hostname = ""
+
 # Whether to listen for websocket (WebAO) connections.
 enable_webao = false
 

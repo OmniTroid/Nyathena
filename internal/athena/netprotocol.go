@@ -528,7 +528,7 @@ func pktOOC(client *Client, p *packet.Packet) {
 
 	if strings.HasPrefix(p.Body[1], "/") {
 		decoded := decode(p.Body[1])
-		regex := regexp.MustCompile("^/[a-z]+")
+		regex := regexp.MustCompile("^/[a-z-]+")
 		command := strings.TrimPrefix(regex.FindString(decoded), "/")
 		args := strings.Split(strings.Join(regex.Split(decoded, 1), ""), " ")[1:]
 		ParseCommand(client, command, args)

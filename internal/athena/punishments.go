@@ -475,13 +475,14 @@ func applyCopycats(text string, userID int) string {
 	
 	// Determine doubling pattern based on user ID
 	// Use modulo to create a pattern for which characters to double
-	doublePattern := (userID % 5) + 2 // Will double every 2-6 characters
+	doublePattern := (userID % 5) + 2 // Doubles characters at intervals of 2-6 positions
 	doubleOffset := userID % doublePattern // Offset within the pattern
 	
 	for i, r := range runes {
 		result.WriteRune(r)
 		// Double certain letters based on user ID pattern
 		// Check if this position matches the user's doubling offset
+		// Skip position 0 to avoid doubling the first character (often capitalized)
 		if i > 0 && i%doublePattern == doubleOffset && unicode.IsLetter(r) {
 			result.WriteRune(r)
 		}

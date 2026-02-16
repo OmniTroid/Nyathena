@@ -377,6 +377,13 @@ func initCommands() {
 			desc:     "Uninvites user(s) from the current area.",
 			reqPerms: permissions.PermissionField["CM"],
 		},
+		"unjail": {
+			handler:  cmdUnjail,
+			minArgs:  1,
+			usage:    "Usage: /unjail <uid1>,<uid2>...",
+			desc:     "Releases user(s) from jail.",
+			reqPerms: permissions.PermissionField["BAN"],
+		},
 		"unlock": {
 			handler:  cmdUnlock,
 			minArgs:  0,
@@ -1678,6 +1685,25 @@ func cmdJail(client *Client, args []string, usage string) {
 		logMsg += " for reason: " + *reason
 	}
 	addToBuffer(client, "CMD", logMsg, false)
+}
+
+// Handles /unjail
+func cmdUnjail(client *Client, args []string, _ string) {
+	toUnjail := getUidList(strings.Split(args[0], ","))
+	var count int
+	var report string
+	for _, c := range toUnjail {
+		if c.JailedUntil().IsZero() || time.Now().UTC().After(c.JailedUntil()) {
+			continue
+		}
+		c.SetJailedUntil(time.Time{})
+		c.SendServerMessage("You have been released from jail.")
+		count++
+		report += fmt.Sprintf("%v, ", c.Uid())
+	}
+	report = strings.TrimSuffix(report, ", ")
+	client.SendServerMessage(fmt.Sprintf("Released %v clients from jail.", count))
+	addToBuffer(client, "CMD", fmt.Sprintf("Released %v from jail.", report), false)
 }
 
 // Handles /rps

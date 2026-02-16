@@ -38,29 +38,30 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Addr                 string `toml:"addr"`
-	Port                 int    `toml:"port"`
-	Name                 string `toml:"name"`
-	Desc                 string `toml:"description"`
-	MaxPlayers           int    `toml:"max_players"`
-	MaxMsg               int    `toml:"max_message_length"`
-	BanLen               string `toml:"default_ban_duration"`
-	EnableWS             bool   `toml:"enable_webao"`
-	WSPort               int    `toml:"webao_port"`
-	EnableWSS            bool   `toml:"enable_webao_secure"`
-	WSSPort              int    `toml:"webao_secure_port"`
-	TLSCertPath          string `toml:"tls_cert_path"`
-	TLSKeyPath           string `toml:"tls_key_path"`
-	ReverseProxyMode     bool   `toml:"reverse_proxy_mode"`
-	ReverseProxyHTTPPort int    `toml:"reverse_proxy_http_port"`
-	ReverseProxyHTTPSPort int   `toml:"reverse_proxy_https_port"`
-	MCLimit              int    `toml:"multiclient_limit"`
-	AssetURL             string `toml:"asset_url"`
-	WebhookURL           string `toml:"webhook_url"`
-	MaxDice              int    `toml:"max_dice"`
-	MaxSide              int    `toml:"max_sides"`
-	Motd                 string `toml:"motd"`
-	MaxStatement         int    `toml:"max_testimony"`
+	Addr                  string `toml:"addr"`
+	Port                  int    `toml:"port"`
+	AdvertiseHostname     string `toml:"advertise_hostname"`
+	Name                  string `toml:"name"`
+	Desc                  string `toml:"description"`
+	MaxPlayers            int    `toml:"max_players"`
+	MaxMsg                int    `toml:"max_message_length"`
+	BanLen                string `toml:"default_ban_duration"`
+	EnableWS              bool   `toml:"enable_webao"`
+	WSPort                int    `toml:"webao_port"`
+	EnableWSS             bool   `toml:"enable_webao_secure"`
+	WSSPort               int    `toml:"webao_secure_port"`
+	TLSCertPath           string `toml:"tls_cert_path"`
+	TLSKeyPath            string `toml:"tls_key_path"`
+	ReverseProxyMode      bool   `toml:"reverse_proxy_mode"`
+	ReverseProxyHTTPPort  int    `toml:"reverse_proxy_http_port"`
+	ReverseProxyHTTPSPort int    `toml:"reverse_proxy_https_port"`
+	MCLimit               int    `toml:"multiclient_limit"`
+	AssetURL              string `toml:"asset_url"`
+	WebhookURL            string `toml:"webhook_url"`
+	MaxDice               int    `toml:"max_dice"`
+	MaxSide               int    `toml:"max_sides"`
+	Motd                  string `toml:"motd"`
+	MaxStatement          int    `toml:"max_testimony"`
 }
 
 type LogConfig struct {
@@ -81,6 +82,7 @@ func defaultConfig() *Config {
 		ServerConfig{
 			Addr:                  "",
 			Port:                  27016,
+			AdvertiseHostname:     "",
 			Name:                  "Unnamed Server",
 			Desc:                  "",
 			MaxPlayers:            100,

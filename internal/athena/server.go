@@ -141,6 +141,9 @@ func InitServer(conf *settings.Config) error {
 			Players: players.GetPlayerCount(),
 			Name:    config.Name,
 			Desc:    config.Desc}
+		if config.AdvertiseHostname != "" {
+			advert.IP = config.AdvertiseHostname
+		}
 		if config.EnableWS {
 			if config.ReverseProxyMode {
 				advert.WSPort = config.ReverseProxyHTTPPort

@@ -26,6 +26,7 @@ import (
 )
 
 type Advertisement struct {
+	IP      string `json:"ip,omitempty"`
 	Port    int    `json:"port"`
 	WSPort  int    `json:"ws_port,omitempty"`
 	WSSPort int    `json:"wss_port,omitempty"`

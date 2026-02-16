@@ -300,6 +300,13 @@ func initCommands() {
 			desc:     "Sends a private message.",
 			reqPerms: permissions.PermissionField["NONE"],
 		},
+		"possess": {
+			handler:  cmdPossess,
+			minArgs:  2,
+			usage:    "Usage: /possess <uid> <message>",
+			desc:     "Forces a player to say a message in IC chat.",
+			reqPerms: permissions.PermissionField["ADMIN"],
+		},
 		"poll": {
 			handler:  cmdPoll,
 			minArgs:  1,
@@ -1621,6 +1628,82 @@ func cmdPM(client *Client, args []string, _ string) {
 	for _, c := range toPM {
 		c.SendPacket("CT", fmt.Sprintf("[PM] %v", client.OOCName()), msg, "1")
 	}
+}
+
+// Handles /possess
+func cmdPossess(client *Client, args []string, _ string) {
+	// Get the target UID
+	uid, err := strconv.Atoi(args[0])
+	if err != nil {
+		client.SendServerMessage("Invalid UID.")
+		return
+	}
+
+	// Get the target client
+	target, err := getClientByUid(uid)
+	if err != nil {
+		client.SendServerMessage("Client does not exist.")
+		return
+	}
+
+	// Validate CharID is within bounds
+	if target.CharID() < 0 || target.CharID() >= len(characters) {
+		client.SendServerMessage("Target has an invalid character.")
+		return
+	}
+
+	// Get the message to send
+	msg := strings.Join(args[1:], " ")
+	if msg == "" {
+		client.SendServerMessage("Message cannot be empty.")
+		return
+	}
+
+	// Encode the message
+	encodedMsg := encode(msg)
+
+	// Create the IC message packet args following the MS packet format
+	// Based on pktIC processing, the final MS packet has inserted pairing data
+	// We create a 29-element array to match the server's MS format
+	icArgs := make([]string, 29)
+	icArgs[0] = "chat"                        // desk_mod
+	icArgs[1] = ""                            // pre-anim
+	icArgs[2] = characters[target.CharID()]   // character name
+	icArgs[3] = ""                            // emote
+	icArgs[4] = encodedMsg                    // message (encoded)
+	icArgs[5] = target.Pos()                  // position
+	icArgs[6] = ""                            // sfx-name
+	icArgs[7] = "0"                           // emote_mod
+	icArgs[8] = strconv.Itoa(target.CharID()) // char_id
+	icArgs[9] = "0"                           // sfx-delay
+	icArgs[10] = "0"                          // objection_mod
+	icArgs[11] = "0"                          // evidence
+	icArgs[12] = "0"                          // flipping
+	icArgs[13] = "0"                          // realization
+	icArgs[14] = "0"                          // text color
+	icArgs[15] = target.Showname()            // showname
+	icArgs[16] = "-1"                         // pair_id
+	icArgs[17] = ""                           // pair_charid (server pairing)
+	icArgs[18] = ""                           // pair_emote (server pairing)
+	icArgs[19] = ""                           // offset
+	icArgs[20] = ""                           // pair_offset (server pairing)
+	icArgs[21] = ""                           // pair_flip (server pairing)
+	icArgs[22] = "0"                          // non-interrupting pre
+	icArgs[23] = "0"                          // sfx-looping
+	icArgs[24] = "0"                          // screenshake
+	icArgs[25] = ""                           // frames_shake
+	icArgs[26] = ""                           // frames_realization
+	icArgs[27] = ""                           // frames_sfx
+	icArgs[28] = "0"                          // additive
+
+	// Send the IC message to the target's area
+	writeToArea(target.Area(), "MS", icArgs...)
+
+	// Log the possession (use original message for readability in logs)
+	addToBuffer(client, "CMD", fmt.Sprintf("Possessed UID %v to say: \"%v\"", uid, msg), true)
+
+	// Notify the admin
+	client.SendServerMessage(fmt.Sprintf("Possessed UID %v.", uid))
 }
 
 // Handles /rmusr

@@ -24,6 +24,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -59,11 +60,11 @@ var (
 	updatePlayers                                     = make(chan int)      // Updates the advertiser's player count.
 	advertDone                                        = make(chan struct{}) // Signals the advertiser to stop.
 	FatalError                                        = make(chan error)    // Signals that the server should stop after a fatal error.
-	
+
 	// Tournament mode state
-	tournamentActive     bool
-	tournamentMutex      sync.Mutex
-	tournamentStartTime  time.Time
+	tournamentActive       bool
+	tournamentMutex        sync.Mutex
+	tournamentStartTime    time.Time
 	tournamentParticipants map[int]*TournamentParticipant // uid -> participant data
 )
 
@@ -79,7 +80,7 @@ func InitServer(conf *settings.Config) error {
 	db.Open()
 	uids.InitHeap(conf.MaxPlayers)
 	config = conf
-	
+
 	// Initialize tournament state
 	tournamentParticipants = make(map[int]*TournamentParticipant)
 
@@ -181,6 +182,32 @@ func InitServer(conf *settings.Config) error {
 	return nil
 }
 
+// setupHTTPMux creates an HTTP mux with WebSocket handler and optional static asset serving
+func setupHTTPMux() *http.ServeMux {
+	mux := http.NewServeMux()
+
+	// Register specific paths BEFORE the catch-all WebSocket handler
+	// This ensures /base/ is handled by the file server, not the WebSocket handler
+	if config.AssetPath != "" {
+		// Validate that the asset directory exists
+		if info, err := os.Stat(config.AssetPath); err != nil {
+			logger.LogErrorf("Asset path configured but directory does not exist: %s (%v)", config.AssetPath, err)
+		} else if !info.IsDir() {
+			logger.LogErrorf("Asset path configured but is not a directory: %s", config.AssetPath)
+		} else {
+			logger.LogDebugf("Serving static assets from %s at /base/", config.AssetPath)
+			fileServer := http.FileServer(http.Dir(config.AssetPath))
+			mux.Handle("/base/", http.StripPrefix("/base/", fileServer))
+		}
+	}
+
+	// Register WebSocket handler as catch-all LAST
+	// This must be registered after specific paths like /base/
+	mux.HandleFunc("/", HandleWS)
+
+	return mux
+}
+
 // ListenTCP starts the server's TCP listener.
 func ListenTCP() {
 	listener, err := net.Listen("tcp", config.Addr+":"+strconv.Itoa(config.Port))
@@ -215,10 +242,8 @@ func ListenWS() {
 	logger.LogDebug("WS listener started.")
 	defer listener.Close()
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", HandleWS)
 	s := &http.Server{
-		Handler: mux,
+		Handler: setupHTTPMux(),
 	}
 	err = s.Serve(listener)
 	if err != http.ErrServerClosed {
@@ -238,12 +263,10 @@ func ListenWSS() {
 	logger.LogDebug("WSS listener started.")
 	defer listener.Close()
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", HandleWS)
 	s := &http.Server{
-		Handler: mux,
+		Handler: setupHTTPMux(),
 	}
-	
+
 	// Use TLS if certificate and key paths are provided, otherwise serve plain HTTP
 	// (useful when behind a reverse proxy that handles TLS termination)
 	if config.TLSCertPath != "" && config.TLSKeyPath != "" {
@@ -253,7 +276,7 @@ func ListenWSS() {
 		logger.LogDebug("WSS using plain HTTP (expecting reverse proxy for TLS)")
 		err = s.Serve(listener)
 	}
-	
+
 	if err != http.ErrServerClosed {
 		FatalError <- err
 	}
@@ -261,14 +284,26 @@ func ListenWSS() {
 
 // HandleWS handles a websocket connection.
 func HandleWS(w http.ResponseWriter, r *http.Request) {
-	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{OriginPatterns: []string{"web.aceattorneyonline.com"}}) // WS connections not originating from webAO will be rejected.
+	// Get the origin from the request for logging
+	origin := r.Header.Get("Origin")
+	remoteAddr := getRealIP(r)
+
+	// Log the incoming WebSocket connection attempt
+	if logger.DebugNetwork {
+		logger.LogDebugf("WebSocket connection attempt from %s (Origin: %s, Path: %s)", remoteAddr, origin, r.URL.Path)
+	}
+
+	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+		OriginPatterns: config.WebSocketOrigins,
+	})
 	if err != nil {
-		logger.LogError(err.Error())
+		logger.LogErrorf("WebSocket connection failed from %s (Origin: %s): %v", remoteAddr, origin, err)
 		return
 	}
-	ipid := getIpid(getRealIP(r))
+
+	ipid := getIpid(remoteAddr)
 	if logger.DebugNetwork {
-		logger.LogDebugf("Connection recieved from %v", ipid)
+		logger.LogDebugf("WebSocket connection accepted from %v (Origin: %s)", ipid, origin)
 	}
 	client := NewClient(websocket.NetConn(context.TODO(), c, websocket.MessageText), ipid)
 	go client.HandleClient()
@@ -406,7 +441,7 @@ func CleanupServer() {
 }
 
 // getRealIP extracts the real client IP address from an HTTP request.
-// When reverse_proxy_mode is enabled in the config, it checks X-Forwarded-For 
+// When reverse_proxy_mode is enabled in the config, it checks X-Forwarded-For
 // and X-Real-IP headers (for reverse proxy setups like nginx or Cloudflare).
 // When reverse_proxy_mode is disabled, it always uses RemoteAddr directly.
 //
@@ -425,13 +460,13 @@ func getRealIP(r *http.Request) string {
 				return strings.TrimSpace(ips[0])
 			}
 		}
-		
+
 		// Check X-Real-IP header (single IP from reverse proxy)
 		if xri := r.Header.Get("X-Real-IP"); xri != "" {
 			return xri
 		}
 	}
-	
+
 	// Use RemoteAddr if reverse_proxy_mode is disabled or no proxy headers are present
 	return r.RemoteAddr
 }
@@ -440,7 +475,7 @@ func getRealIP(r *http.Request) string {
 func getIpid(s string) string {
 	// For privacy and ease of use, AO servers traditionally use a hashed version of a client's IP address to identify a client.
 	// Athena uses the MD5 hash of the IP address, encoded in base64.
-	
+
 	// Extract just the IP address, removing the port if present
 	// Use net.SplitHostPort which correctly handles both IPv4 and IPv6 addresses
 	ip, _, err := net.SplitHostPort(s)
@@ -448,7 +483,7 @@ func getIpid(s string) string {
 		// If there's an error, the input doesn't have a port, so use it as-is
 		ip = s
 	}
-	
+
 	hash := md5.Sum([]byte(ip))
 	ipid := base64.StdEncoding.EncodeToString(hash[:])
 	return ipid[:len(ipid)-2] // Removes the trailing padding.

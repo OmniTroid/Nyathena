@@ -267,6 +267,10 @@ func HandleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	// Set the read limit to accommodate large character and music lists
+	// Default is 32KB which is too small for servers with many songs/characters
+	c.SetReadLimit(config.WSMessageSizeLimit)
+	
 	ipid := getIpid(getRealIP(r))
 	if logger.DebugNetwork {
 		logger.LogDebugf("Connection recieved from %v", ipid)

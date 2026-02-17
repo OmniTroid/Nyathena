@@ -266,11 +266,17 @@ func HandleWS(w http.ResponseWriter, r *http.Request) {
 		logger.LogError(err.Error())
 		return
 	}
+	
+	// Increase read limit to handle large incoming messages (e.g., character/music list requests)
+	// Default is 32KB which may be insufficient for some edge cases
+	c.SetReadLimit(1048576) // 1 MB
+	
 	ipid := getIpid(getRealIP(r))
 	if logger.DebugNetwork {
 		logger.LogDebugf("Connection received from %v", ipid)
 	}
-	client := NewClient(websocket.NetConn(context.TODO(), c, websocket.MessageText), ipid)
+	// Use context.Background() for proper lifecycle management of long-lived WebSocket connections
+	client := NewClient(websocket.NetConn(context.Background(), c, websocket.MessageText), ipid)
 	go client.HandleClient()
 }
 

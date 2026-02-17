@@ -176,6 +176,11 @@ func (client *Client) HandleClient() {
 
 	client.SendPacket("decryptor", "NOENCRYPT") // Relic of FantaCrypt. AO2 requires a server to send this to proceed with the handshake.
 	input := bufio.NewScanner(client.conn)
+	
+	// Increase scanner buffer to handle large packets (default is 64KB max token size)
+	// This allows receiving large character/music lists from clients
+	buf := make([]byte, 0, 64*1024)  // 64KB initial buffer
+	input.Buffer(buf, 1024*1024)      // Allow up to 1MB token size
 
 	splitfn := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		if atEOF && len(data) == 0 {

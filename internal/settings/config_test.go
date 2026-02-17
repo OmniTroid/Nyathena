@@ -25,7 +25,7 @@ import (
 
 func TestDefaultWSMessageSizeLimit(t *testing.T) {
 	conf := defaultConfig()
-	
+
 	// Default should be 1 MB (1048576 bytes)
 	expected := int64(1048576)
 	if conf.WSMessageSizeLimit != expected {
@@ -37,7 +37,7 @@ func TestConfigLoadWSMessageSizeLimit(t *testing.T) {
 	// Create a temporary config file
 	tmpDir := t.TempDir()
 	configFile := tmpDir + "/config.toml"
-	
+
 	configContent := `
 [Server]
 name = "Test Server"
@@ -54,19 +54,19 @@ log_methods = [ "stdout" ]
 advertise = false
 addr = "https://servers.aceattorneyonline.com/servers"
 `
-	
+
 	err := os.WriteFile(configFile, []byte(configContent), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create test config file: %v", err)
 	}
-	
+
 	// Load the config
 	var conf Config
 	_, err = toml.DecodeFile(configFile, &conf)
 	if err != nil {
 		t.Fatalf("Failed to decode config: %v", err)
 	}
-	
+
 	// Verify the value was loaded correctly
 	expected := int64(2097152) // 2 MB
 	if conf.WSMessageSizeLimit != expected {
@@ -78,7 +78,7 @@ func TestConfigWithoutWSMessageSizeLimit(t *testing.T) {
 	// Test that config without the field still loads with default
 	tmpDir := t.TempDir()
 	configFile := tmpDir + "/config.toml"
-	
+
 	configContent := `
 [Server]
 name = "Test Server"
@@ -94,12 +94,12 @@ log_methods = [ "stdout" ]
 advertise = false
 addr = "https://servers.aceattorneyonline.com/servers"
 `
-	
+
 	err := os.WriteFile(configFile, []byte(configContent), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create test config file: %v", err)
 	}
-	
+
 	// Load using the Load method which handles defaults
 	ConfigPath = tmpDir
 	conf := defaultConfig()
@@ -107,7 +107,7 @@ addr = "https://servers.aceattorneyonline.com/servers"
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}
-	
+
 	// Should default to 1 MB when not specified in config
 	expected := int64(1048576)
 	if conf.WSMessageSizeLimit != expected {

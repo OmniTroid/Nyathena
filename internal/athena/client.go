@@ -280,7 +280,9 @@ func (client *Client) CurrentCharacter() string {
 // timeout closes an unjoined client's connection after 1 minute.
 func timeout(client *Client) {
 	time.Sleep(1 * time.Minute)
-	if client.Uid() == -1 {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	if client.uid == -1 {
 		client.conn.Close()
 	}
 }

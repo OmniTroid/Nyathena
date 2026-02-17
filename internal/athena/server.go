@@ -266,18 +266,11 @@ func HandleWS(w http.ResponseWriter, r *http.Request) {
 		logger.LogError(err.Error())
 		return
 	}
-
-	// Set the read limit to accommodate large character and music lists
-	// Default is 32KB which is too small for servers with many songs/characters
-	c.SetReadLimit(config.WSMessageSizeLimit)
-
 	ipid := getIpid(getRealIP(r))
 	if logger.DebugNetwork {
 		logger.LogDebugf("Connection received from %v", ipid)
 	}
-	// Use context.Background() instead of context.TODO() for proper lifecycle management
-	// This ensures the WebSocket connection doesn't timeout when sending large messages
-	client := NewClient(websocket.NetConn(context.Background(), c, websocket.MessageText), ipid)
+	client := NewClient(websocket.NetConn(context.TODO(), c, websocket.MessageText), ipid)
 	go client.HandleClient()
 }
 

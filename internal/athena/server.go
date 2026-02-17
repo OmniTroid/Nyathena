@@ -266,6 +266,13 @@ func HandleWS(w http.ResponseWriter, r *http.Request) {
 		logger.LogError(err.Error())
 		return
 	}
+	
+	// Set read limit to accommodate large character and music lists
+	// Default is 32KB which may be too small for servers with extensive asset lists
+	if config.WebSocketReadLimit > 0 {
+		c.SetReadLimit(config.WebSocketReadLimit)
+	}
+	
 	ipid := getIpid(getRealIP(r))
 	if logger.DebugNetwork {
 		logger.LogDebugf("Connection recieved from %v", ipid)

@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 package athena
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -130,12 +131,12 @@ func TestRateLimitConcurrency(t *testing.T) {
 
 	// Simulate concurrent access
 	done := make(chan bool, 20)
-	var exceeded int
+	var exceeded int32
 
 	for i := 0; i < 20; i++ {
 		go func() {
 			if client.CheckRateLimit() {
-				exceeded++
+				atomic.AddInt32(&exceeded, 1)
 			}
 			done <- true
 		}()
@@ -146,9 +147,10 @@ func TestRateLimitConcurrency(t *testing.T) {
 		<-done
 	}
 
-	// Should have at least 10 successful messages before rate limiting kicks in
-	if exceeded < 10 {
-		t.Errorf("Expected at least 10 messages to exceed limit, got %d", exceeded)
+	// Should have at least 10 messages to exceed limit
+	exceededCount := atomic.LoadInt32(&exceeded)
+	if exceededCount < 10 {
+		t.Errorf("Expected at least 10 messages to exceed limit, got %d", exceededCount)
 	}
 }
 

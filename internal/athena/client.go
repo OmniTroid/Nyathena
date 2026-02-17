@@ -1012,7 +1012,9 @@ func (client *Client) CheckRateLimit() bool {
 
 	// Remove timestamps outside the current window (sliding window)
 	cutoff := now.Add(-window)
-	validIdx := 0
+	
+	// Find the first timestamp that is still within the window
+	validIdx := -1
 	for i, ts := range client.msgTimestamps {
 		if ts.After(cutoff) {
 			validIdx = i
@@ -1020,13 +1022,13 @@ func (client *Client) CheckRateLimit() bool {
 		}
 	}
 	
-	// If all timestamps are old, clear the slice
-	if validIdx > 0 || (len(client.msgTimestamps) > 0 && client.msgTimestamps[len(client.msgTimestamps)-1].Before(cutoff)) {
-		if len(client.msgTimestamps) > 0 && client.msgTimestamps[len(client.msgTimestamps)-1].Before(cutoff) {
-			client.msgTimestamps = client.msgTimestamps[:0]
-		} else {
-			client.msgTimestamps = client.msgTimestamps[validIdx:]
-		}
+	// Clean up old timestamps
+	if validIdx == -1 {
+		// All timestamps are expired, clear the slice
+		client.msgTimestamps = client.msgTimestamps[:0]
+	} else if validIdx > 0 {
+		// Some timestamps are expired, remove them
+		client.msgTimestamps = client.msgTimestamps[validIdx:]
 	}
 
 	// Check if rate limit is exceeded

@@ -383,6 +383,18 @@ Each log entry includes comprehensive information about the action:
 - New areas automatically get their directories
 - No manual filesystem setup required
 
+**Real-Time Writing:**
+- Logs are written **immediately** when events occur (synchronous I/O)
+- Each action (IC message, OOC message, area change, etc.) triggers an immediate write
+- File is opened, written to, and closed for each log entry
+- **Application-level**: Writes happen in real-time without buffering
+- **OS-level**: Operating system may buffer writes before flushing to physical disk
+- **Data persistence**: Most modern filesystems flush within seconds
+- For critical deployments requiring guaranteed disk writes, consider:
+  - Using a filesystem with synchronous writes (e.g., mount with `sync` option)
+  - Running on storage with write-back cache disabled
+  - Note: Forcing synchronous disk writes may impact performance
+
 ### Usage Examples
 
 **Enable Area Logging:**
@@ -444,6 +456,20 @@ grep "| CMD |" logs/*/$(date +%Y-%m-%d).txt
 - No blocking between different areas
 - Minimal memory footprint
 - Efficient file I/O with append mode
+- **Synchronous writes**: Each log entry results in one file open/write/close operation
+- Write latency typically < 1ms on modern SSDs
+- On spinning disks or network storage, may see 5-50ms per write
+
+**Write Guarantees:**
+- Application immediately writes to filesystem on each event
+- File descriptor is opened, written to, and closed synchronously
+- No application-level buffering or batching
+- OS filesystem cache may buffer writes (typically 30 seconds or less)
+- Power loss before OS flush may result in data loss of recent entries
+- For mission-critical logging, consider:
+  - Hardware with battery-backed write cache (BBU)
+  - Filesystem tuning (e.g., commit interval settings)
+  - Redundant storage (RAID) for data protection
 
 **Cross-Platform:**
 - Works on Linux, Windows, and macOS
@@ -471,3 +497,53 @@ Comprehensive test coverage includes:
 - Changes require server restart to take effect
 - Logs are UTF-8 encoded for international character support
 - Disk space should be monitored when enabled on high-traffic servers
+
+### Frequently Asked Questions
+
+**Q: Does this write to the VPS in real-time, or is there buffering?**
+
+A: **Yes, writes happen in real-time from the application's perspective.** Here's the detailed behavior:
+
+1. **Application Level (Immediate):**
+   - Every IC message, OOC message, area change, etc. triggers an immediate write
+   - The code opens the log file, writes the entry, and closes the file synchronously
+   - No buffering or batching at the application level
+   - This happens instantly (< 1ms on modern hardware)
+
+2. **Operating System Level (May Buffer):**
+   - The OS filesystem cache may hold writes in RAM for 5-30 seconds before flushing to disk
+   - This is normal behavior for all file systems (Linux ext4, Windows NTFS, etc.)
+   - Provides better performance while maintaining data safety
+   - In case of power loss, you might lose the last 5-30 seconds of logs
+
+3. **For VPS/Cloud Deployments:**
+   - Most cloud providers (DigitalOcean, AWS, Azure, etc.) have additional storage caching
+   - Your data is safe from process crashes (writes are in OS cache)
+   - For maximum safety against power loss, consider:
+     - Cloud provider snapshots/backups
+     - Volumes with higher durability guarantees (e.g., AWS EBS io2)
+     - Real-time log streaming to external services (Papertrail, Loggly, etc.)
+
+**Q: Will I lose logs if the server crashes?**
+
+A: It depends on the type of crash:
+- **Application crash**: No data loss (writes are already in OS cache)
+- **Server reboot**: Minimal loss (only last 5-30 seconds of logs)
+- **Power loss without UPS**: May lose last 30 seconds of logs
+- **Disk failure**: Depends on your backup strategy
+
+**Q: Can I make writes synchronous to disk for critical deployments?**
+
+A: Yes, but with performance tradeoffs:
+- **Option 1**: Mount filesystem with `sync` option (significant performance impact)
+- **Option 2**: Use enterprise storage with battery-backed cache (BBU)
+- **Option 3**: Implement `fsync()` calls in code (would require code modification)
+- **Recommended**: Use real-time log forwarding to external services instead
+
+**Q: What's the performance impact?**
+
+A: Minimal under normal load:
+- Each write takes < 1ms on SSD, 5-50ms on HDD
+- Per-area locking means different areas don't block each other
+- 100 players sending messages creates ~100 writes/second (easily handled)
+- Only becomes a concern with 500+ simultaneous messages per second

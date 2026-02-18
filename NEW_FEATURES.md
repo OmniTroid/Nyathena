@@ -295,3 +295,179 @@ Comprehensive test coverage includes:
 - Spammers attempting flood attacks are automatically kicked
 - Setting to 0 disables rate limiting entirely (not recommended for public servers)
 - Changes require server restart to take effect
+
+---
+
+## Feature 5: Per-Area Logging
+
+### Overview
+A comprehensive logging system that creates separate log folders for each area with daily-rotating log files. This allows server administrators to track all activity in specific areas for moderation, investigation, and record-keeping purposes.
+
+### Configuration
+Add this setting to your `config.toml` under the `[Logging]` section:
+
+```toml
+# Enable per-area folder logging with daily rotation.
+# When enabled, each area gets its own folder under logs/ with daily log files.
+# Format: logs/AreaName/AreaName-YYYY-MM-DD.txt
+# Each log line includes: [HH:MM:SS] | ACTION | CHARACTER | IPID | HDID | SHOWNAME | OOC_NAME | MESSAGE
+enable_area_logging = false
+```
+
+### Directory Structure
+When enabled, the logging system creates the following structure:
+
+```
+logs/
+├── Lobby/
+│   ├── Lobby-2026-02-18.txt
+│   ├── Lobby-2026-02-17.txt
+│   └── Lobby-2026-02-16.txt
+├── Courtroom/
+│   ├── Courtroom-2026-02-18.txt
+│   └── Courtroom-2026-02-17.txt
+└── Defense Attorney/
+    └── Defense Attorney-2026-02-18.txt
+```
+
+### Log Format
+Each log entry includes comprehensive information about the action:
+
+```
+[HH:MM:SS] | ACTION | CHARACTER | IPID | HDID | SHOWNAME | OOC_NAME | MESSAGE
+```
+
+**Example Entries:**
+```
+[15:04:05] | IC | Phoenix Wright | abc123def | hash789 | Phoenix | JohnDoe | "Objection!"
+[15:04:06] | OOC | Spectator | xyz456abc | hash456 | Spectator | JaneDoe | "nice moves"
+[15:04:07] | AREA | Phoenix Wright | abc123def | hash789 | Phoenix | JohnDoe | "Joined area."
+[15:04:10] | MUSIC | Maya Fey | def789ghi | hash123 | Maya | Player3 | "Changed music to Trial.mp3."
+[15:04:15] | CMD | Miles Edgeworth | ghi012jkl | hash321 | Edgeworth | Moderator1 | "Set BG to courtroom."
+```
+
+### Action Types Logged
+- **IC** - In-character messages
+- **OOC** - Out-of-character messages
+- **AREA** - Area join/leave events
+- **MUSIC** - Music changes
+- **CMD** - Moderator commands (background changes, area settings, etc.)
+- **AUTH** - Authentication events
+- **MOD** - Moderator actions
+- **JUD** - Judge actions (testimony, verdicts)
+- **EVI** - Evidence changes
+
+### Features
+
+**Daily File Rotation:**
+- New log file created each day automatically
+- Files named with ISO date format (YYYY-MM-DD)
+- No manual intervention required
+
+**Thread-Safe Operation:**
+- Per-area mutex locks prevent race conditions
+- Multiple users in the same area write safely
+- No performance impact under normal load
+
+**Special Character Handling:**
+- Area names with special characters are sanitized
+- Slashes, colons, and other problematic characters replaced with underscores
+- Examples: "Area/Test" → "Area_Test", "Room:1" → "Room_1"
+
+**Zero Performance Impact When Disabled:**
+- No overhead when `enable_area_logging = false`
+- Files only created when feature is enabled
+
+**Automatic Directory Creation:**
+- Area log directories created on server startup
+- New areas automatically get their directories
+- No manual filesystem setup required
+
+### Usage Examples
+
+**Enable Area Logging:**
+```toml
+[Logging]
+enable_area_logging = true
+log_directory = "logs"
+```
+
+**Custom Log Directory:**
+```toml
+[Logging]
+enable_area_logging = true
+log_directory = "/var/log/athena"
+```
+
+**View Logs:**
+```bash
+# View today's logs for Courtroom
+cat logs/Courtroom/Courtroom-2026-02-18.txt
+
+# Search for specific user activity
+grep "abc123def" logs/Courtroom/*.txt
+
+# View all IC messages in an area
+grep "| IC |" logs/Lobby/Lobby-2026-02-18.txt
+
+# Find all moderator commands
+grep "| CMD |" logs/*/$(date +%Y-%m-%d).txt
+```
+
+### Use Cases
+
+**Moderation:**
+- Review reported incidents
+- Track problematic user behavior
+- Provide evidence for ban appeals
+
+**Investigation:**
+- Trace user activity across sessions
+- Identify patterns of rule violations
+- Correlate events between areas
+
+**Record Keeping:**
+- Archive important roleplay sessions
+- Maintain server history
+- Comply with community guidelines
+
+### Technical Details
+
+**Implementation:**
+- Uses `sync.Map` for per-area locks (memory efficient)
+- Files opened in append mode with proper permissions (0644)
+- Uses `filepath.Join()` for cross-platform compatibility
+- Thread-safe with individual area locks (no global lock bottleneck)
+
+**Performance:**
+- O(1) lock acquisition per area
+- No blocking between different areas
+- Minimal memory footprint
+- Efficient file I/O with append mode
+
+**Cross-Platform:**
+- Works on Linux, Windows, and macOS
+- Proper path separators for each OS
+- Safe filename generation
+
+### Testing
+Comprehensive test coverage includes:
+- Area name sanitization (special characters)
+- Directory creation
+- Log file writing (single and multiple entries)
+- Disabled logging behavior
+- Thread safety
+- Cross-platform path handling
+
+### Security
+- CodeQL scan: No vulnerabilities detected
+- No path traversal vulnerabilities
+- Safe filename sanitization
+- Proper file permissions (0644 for files, 0755 for directories)
+
+### Notes
+- Log files can grow large over time - consider implementing log rotation or cleanup
+- IPID and HDID are hashed for privacy
+- Changes require server restart to take effect
+- Logs are UTF-8 encoded for international character support
+- Disk space should be monitored when enabled on high-traffic servers

@@ -304,7 +304,14 @@ func initCommands() {
 			handler:  cmdPossess,
 			minArgs:  2,
 			usage:    "Usage: /possess <uid> <message>",
-			desc:     "Forces a player to say a message in IC chat.",
+			desc:     "Forces a player to say a message in IC chat and follows their position.",
+			reqPerms: permissions.PermissionField["ADMIN"],
+		},
+		"unpossess": {
+			handler:  cmdUnpossess,
+			minArgs:  0,
+			usage:    "Usage: /unpossess",
+			desc:     "Stops possessing a player.",
 			reqPerms: permissions.PermissionField["ADMIN"],
 		},
 		"poll": {
@@ -1700,6 +1707,12 @@ func cmdPossess(client *Client, args []string, _ string) {
 		return
 	}
 
+	// Check if the possessing client has a valid character
+	if client.CharID() < 0 || client.CharID() >= len(characters) {
+		client.SendServerMessage("You must have a valid character to possess someone.")
+		return
+	}
+
 	// Get the message to send
 	msg := strings.Join(args[1:], " ")
 	if msg == "" {
@@ -1716,19 +1729,25 @@ func cmdPossess(client *Client, args []string, _ string) {
 		targetEmote = "normal"
 	}
 
+	// Establish the possession link
+	client.SetPossessing(target.Uid())
+
+	// Sync the possessed character's position to the target's position immediately
+	client.SetPos(target.Pos())
+
 	// Create the IC message packet args following the MS packet format
 	// Based on pktIC processing, the final MS packet has inserted pairing data
 	// We create a 30-element array to match the server's MS format
 	icArgs := make([]string, 30)
 	icArgs[0] = "chat"                        // desk_mod
 	icArgs[1] = ""                            // pre-anim
-	icArgs[2] = characters[target.CharID()]   // character name
+	icArgs[2] = characters[client.CharID()]   // character name (use possessor's character)
 	icArgs[3] = targetEmote                   // emote (use target's current emote)
 	icArgs[4] = encodedMsg                    // message (encoded)
-	icArgs[5] = target.Pos()                  // position
+	icArgs[5] = target.Pos()                  // position (use target's position)
 	icArgs[6] = ""                            // sfx-name
 	icArgs[7] = "0"                           // emote_mod
-	icArgs[8] = strconv.Itoa(target.CharID()) // char_id
+	icArgs[8] = strconv.Itoa(client.CharID()) // char_id (use possessor's character)
 	icArgs[9] = "0"                           // sfx-delay
 	icArgs[10] = "0"                          // objection_mod
 	icArgs[11] = "0"                          // evidence
@@ -1740,10 +1759,10 @@ func cmdPossess(client *Client, args []string, _ string) {
 		targetTextColor = "0"
 	}
 	icArgs[14] = targetTextColor              // text color
-	// Use character name as showname if target's showname is empty
-	showname := target.Showname()
+	// Use possessor's showname or character name
+	showname := client.Showname()
 	if strings.TrimSpace(showname) == "" {
-		showname = characters[target.CharID()]
+		showname = characters[client.CharID()]
 	}
 	icArgs[15] = showname                     // showname
 	icArgs[16] = "-1"                         // pair_id
@@ -1768,7 +1787,24 @@ func cmdPossess(client *Client, args []string, _ string) {
 	addToBuffer(client, "CMD", fmt.Sprintf("Possessed UID %v to say: \"%v\"", uid, msg), true)
 
 	// Notify the admin
-	client.SendServerMessage(fmt.Sprintf("Possessed UID %v.", uid))
+	client.SendServerMessage(fmt.Sprintf("Possessed UID %v. Your character will now follow their position.", uid))
+}
+
+// Handles /unpossess
+func cmdUnpossess(client *Client, args []string, _ string) {
+	if client.Possessing() == -1 {
+		client.SendServerMessage("You are not possessing anyone.")
+		return
+	}
+
+	// Clear the possession link
+	client.SetPossessing(-1)
+
+	// Log the action
+	addToBuffer(client, "CMD", "Stopped possessing.", true)
+
+	// Notify the admin
+	client.SendServerMessage("Stopped possessing.")
 }
 
 // Handles /rmusr

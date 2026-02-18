@@ -181,6 +181,14 @@ func pktIC(client *Client, p *packet.Packet) {
 
 	client.SetPos(args[5])
 	
+	// Sync position for any clients possessing this client
+	for c := range clients.GetAllClients() {
+		if c.Possessing() == client.Uid() {
+			// Update the possessing client's position to match the target's position
+			c.SetPos(args[5])
+		}
+	}
+	
 	// Check and clean up expired punishments
 	if client.CheckExpiredPunishments() {
 		client.SendServerMessage("One or more punishments have expired.")

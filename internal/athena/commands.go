@@ -311,7 +311,7 @@ func initCommands() {
 			handler:  cmdFullPossess,
 			minArgs:  1,
 			usage:    "Usage: /fullpossess <uid>",
-			desc:     "Mirrors all IC messages from target until /unpossess is used.",
+			desc:     "Makes all YOUR IC messages appear as the target until /unpossess.",
 			reqPerms: permissions.PermissionField["ADMIN"],
 		},
 		"unpossess": {
@@ -1801,7 +1801,7 @@ func cmdUnpossess(client *Client, args []string, _ string) {
 	client.SendServerMessage("Stopped possessing.")
 }
 
-// Handles /fullpossess - permanent possession that mirrors all target's IC messages
+// Handles /fullpossess - makes all admin's IC messages appear from target
 func cmdFullPossess(client *Client, args []string, _ string) {
 	// Get the target UID
 	uid, err := strconv.Atoi(args[0])
@@ -1830,7 +1830,7 @@ func cmdFullPossess(client *Client, args []string, _ string) {
 	addToBuffer(client, "CMD", fmt.Sprintf("Started full possession of UID %v.", uid), true)
 
 	// Notify the admin
-	client.SendServerMessage(fmt.Sprintf("Now fully possessing UID %v. All their IC messages will be mirrored. Use /unpossess to stop.", uid))
+	client.SendServerMessage(fmt.Sprintf("Now fully possessing UID %v. All YOUR IC messages will appear as them. Use /unpossess to stop.", uid))
 }
 
 // Handles /rmusr

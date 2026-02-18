@@ -1425,12 +1425,14 @@ func cmdMakeover(client *Client, args []string, _ string) {
 		
 		// Set the client's character ID to the target character
 		c.SetCharID(charID)
-		c.SetShowname(c.CurrentCharacter())
+		c.SetShowname(charName)
 		
 		// Clear any iniswap/pair info so they use the actual character
 		c.SetPairInfo("", "", "", "")
 		
 		// Send packet to client to update their character
+		// PV packet format: PV#<player_id>#CID#<character_id>
+		// player_id "0" indicates the client's own character update
 		c.SendPacket("PV", "0", "CID", strconv.Itoa(charID))
 		
 		// Add the new character to the area (allow duplicates for this admin command)

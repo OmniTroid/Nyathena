@@ -28,12 +28,14 @@ func TestPossessionTracking(t *testing.T) {
 		char:       -1,
 		possessing: -1,
 		pair:       ClientPairInfo{wanted_id: -1},
+		pairedUID:  -1,
 	}
 	target := &Client{
 		uid:        2,
 		char:       -1,
 		possessing: -1,
 		pair:       ClientPairInfo{wanted_id: -1},
+		pairedUID:  -1,
 	}
 
 	// Initially, possessor should not be possessing anyone
@@ -66,6 +68,7 @@ func TestFullPossessionTransformation(t *testing.T) {
 		char:       0, // Phoenix Wright
 		possessing: -1,
 		pair:       ClientPairInfo{wanted_id: -1},
+		pairedUID:  -1,
 		pos:        "def",
 	}
 	target := &Client{
@@ -73,6 +76,7 @@ func TestFullPossessionTransformation(t *testing.T) {
 		char:       1, // Miles Edgeworth
 		possessing: -1,
 		pair:       ClientPairInfo{wanted_id: -1},
+		pairedUID:  -1,
 		pos:        "pro",
 	}
 
@@ -101,6 +105,7 @@ func TestNewClientInitialization(t *testing.T) {
 		char:       -1,
 		possessing: -1,
 		pair:       ClientPairInfo{wanted_id: -1},
+		pairedUID:  -1,
 	}
 
 	if client.Possessing() != -1 {
@@ -117,6 +122,7 @@ func TestPossessPreservesAdminPosition(t *testing.T) {
 		possessing:   -1,
 		possessedPos: "",
 		pair:         ClientPairInfo{wanted_id: -1},
+		pairedUID:    -1,
 		pos:          "def",
 	}
 
@@ -127,6 +133,7 @@ func TestPossessPreservesAdminPosition(t *testing.T) {
 		possessing:   -1,
 		possessedPos: "",
 		pair:         ClientPairInfo{wanted_id: -1},
+		pairedUID:    -1,
 		pos:          "pro",
 	}
 
@@ -200,6 +207,7 @@ func TestPossessWithIniswap(t *testing.T) {
 		char:       0, // Selected Phoenix Wright
 		possessing: -1,
 		pair:       ClientPairInfo{wanted_id: -1},
+		pairedUID:  -1,
 		pos:        "def",
 	}
 
@@ -227,6 +235,7 @@ func TestPossessWithIniswap(t *testing.T) {
 		char:       2, // Maya Fey
 		possessing: -1,
 		pair:       ClientPairInfo{wanted_id: -1, name: ""}, // Empty PairInfo
+		pairedUID:  -1,
 		pos:        "wit",
 	}
 

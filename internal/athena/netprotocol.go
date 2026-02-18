@@ -402,6 +402,21 @@ func pktIC(client *Client, p *packet.Packet) {
 			args[16] = "-1^"
 		}
 	}
+
+	// Persistent pairing check - if a persistent pair exists in the same area, use it
+	if client.PairedUID() != -1 {
+		paired := clients.GetClientByUID(client.PairedUID())
+		if paired != nil && paired.Area() == client.Area() && paired.PairedUID() == client.Uid() {
+			// Persistent pair is in the same area and pairing is mutual
+			pairinfo := paired.PairInfo()
+			args[16] = strconv.Itoa(paired.CharID()) + "^"
+			args[17] = pairinfo.name
+			args[18] = pairinfo.emote
+			args[20] = pairinfo.offset
+			args[21] = pairinfo.flip
+		}
+	}
+
 	// Offset validation
 	if args[19] != "" {
 		offsets := strings.Split(decode(args[19]), "&")

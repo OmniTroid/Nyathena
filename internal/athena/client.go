@@ -140,6 +140,7 @@ type Client struct {
 	msgTimestamps   []time.Time // Tracks message timestamps for rate limiting
 	possessing      int         // UID of the client being possessed (-1 if not possessing anyone)
 	possessedPos    string      // Position of the possessed target (saved at time of possession)
+	pairedUID       int         // UID of the persistently paired player (-1 if none)
 }
 
 // NewClient returns a new client.
@@ -151,6 +152,7 @@ func NewClient(conn net.Conn, ipid string) *Client {
 		pair:       ClientPairInfo{wanted_id: -1},
 		ipid:       ipid,
 		possessing: -1,
+		pairedUID:  -1,
 	}
 }
 
@@ -509,6 +511,20 @@ func (client *Client) PairWantedID() int {
 func (client *Client) SetPairWantedID(id int) {
 	client.mu.Lock()
 	client.pair.wanted_id = id
+	client.mu.Unlock()
+}
+
+// PairedUID returns the UID of the client's persistent pair partner.
+func (client *Client) PairedUID() int {
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	return client.pairedUID
+}
+
+// SetPairedUID sets the UID of the client's persistent pair partner.
+func (client *Client) SetPairedUID(uid int) {
+	client.mu.Lock()
+	client.pairedUID = uid
 	client.mu.Unlock()
 }
 

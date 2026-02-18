@@ -86,14 +86,6 @@ func TestFullPossessionNotification(t *testing.T) {
 	if admin.Possessing() != target.Uid() {
 		t.Errorf("Expected admin to be possessing target UID %d, got %d", target.Uid(), admin.Possessing())
 	}
-
-	// Verify the target's UID can be retrieved for message mirroring
-	if admin.Possessing() == target.Uid() {
-		// This confirms the possession link works for mirroring messages
-		// In actual usage, when target sends IC message, admin gets notified
-	} else {
-		t.Errorf("Possession link verification failed")
-	}
 }
 
 // TestNewClientInitialization tests that new clients have possessing field initialized to -1

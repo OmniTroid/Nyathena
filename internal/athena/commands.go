@@ -1682,6 +1682,42 @@ func cmdPair(client *Client, args []string, usage string) {
 	}
 }
 
+// sendPairVisualRefresh sends a minimal IC message to force client to refresh pairing visuals
+func sendPairVisualRefresh(client *Client) {
+	// Send a blank IC message with no pairing info to force visual refresh
+	// This clears the ghost partner from the client's screen
+	client.SendPacket("MS", "chat",
+		"0",                     // pre-animation
+		characters[client.CharID()], // character name/folder
+		"",                      // emote
+		"",                      // message text
+		client.Pos(),            // position
+		"",                      // sfx-name
+		"0",                     // emote_modifier
+		"0",                     // cid
+		"",                      // sfx-delay
+		"",                      // objection_modifier
+		"0",                     // evidence
+		"0",                     // flip
+		"0",                     // realization
+		"0",                     // text_color
+		client.Showname(),       // showname
+		"-1",                    // other_charid (no pairing)
+		"",                      // other_name
+		"",                      // other_emote
+		"0",                     // self_offset
+		"",                      // other_offset
+		"",                      // other_flip
+		"0",                     // noninterrupting_preanim
+		"0",                     // sfx_looping
+		"",                      // screenshake
+		"",                      // frames_shake
+		"",                      // frames_realization
+		"",                      // frames_sfx
+		"0",                     // additive
+		"")                      // effect
+}
+
 // Handles /unpair
 func cmdUnpair(client *Client, _ []string, _ string) {
 	pairedUID := client.PairedUID()
@@ -1696,12 +1732,16 @@ func cmdUnpair(client *Client, _ []string, _ string) {
 		paired.SetPairedUID(-1)
 		paired.SetPairInfo("", "", "", "") // Clear visual pair info
 		paired.SendServerMessage(fmt.Sprintf("%s (UID: %d) has ended the pairing.", client.OOCName(), client.Uid()))
+		// Send a blank IC message to force visual refresh and clear ghost partner
+		sendPairVisualRefresh(paired)
 	}
 
 	client.SetPairedUID(-1)
 	client.SetPairInfo("", "", "", "") // Clear visual pair info
 	client.SendServerMessage("Unpairing successful.")
 	addToBuffer(client, "CMD", "Unpaired.", false)
+	// Send a blank IC message to force visual refresh and clear ghost partner
+	sendPairVisualRefresh(client)
 }
 
 // Handles /play

@@ -161,13 +161,37 @@ func TestPossessPreservesAdminPosition(t *testing.T) {
 
 // TestPossessWithIniswap tests that possession works correctly when target has iniswapped
 func TestPossessWithIniswap(t *testing.T) {
+	// Save original characters and restore after test to ensure test isolation
+	originalCharacters := characters
+	t.Cleanup(func() {
+		characters = originalCharacters
+	})
+
 	// Initialize mock characters list for testing
 	// In real usage, this is loaded from characters.txt
 	characters = []string{
-		"Phoenix Wright",   // ID 0
-		"Miles Edgeworth",  // ID 1
-		"Maya Fey",         // ID 2
+		"Phoenix Wright",      // ID 0
+		"Miles Edgeworth",     // ID 1
+		"Maya Fey",            // ID 2
 		"Franziska von Karma", // ID 3
+	}
+
+	// Test getCharacterID helper function works correctly
+	edgeworthID := getCharacterID("Miles Edgeworth")
+	if edgeworthID != 1 {
+		t.Errorf("Expected Miles Edgeworth ID to be 1, got %d", edgeworthID)
+	}
+
+	// Test case-insensitive character lookup
+	edgeworthID2 := getCharacterID("miles edgeworth")
+	if edgeworthID2 != 1 {
+		t.Errorf("Expected case-insensitive lookup to find Miles Edgeworth (ID 1), got %d", edgeworthID2)
+	}
+
+	// Test getCharacterID with invalid character name
+	invalidID := getCharacterID("NonexistentCharacter")
+	if invalidID != -1 {
+		t.Errorf("Expected getCharacterID to return -1 for invalid character, got %d", invalidID)
 	}
 
 	// Create a target who has selected Phoenix Wright (ID 0)
@@ -188,29 +212,16 @@ func TestPossessWithIniswap(t *testing.T) {
 		t.Errorf("Expected target PairInfo name to be 'Miles Edgeworth', got '%s'", target.PairInfo().name)
 	}
 
-	// Verify getCharacterID helper function works correctly
-	edgeworthID := getCharacterID("Miles Edgeworth")
-	if edgeworthID != 1 {
-		t.Errorf("Expected Miles Edgeworth ID to be 1, got %d", edgeworthID)
-	}
-
-	// When possessing this target, the code should use "Miles Edgeworth" (from PairInfo)
-	// not "Phoenix Wright" (from CharID)
+	// Verify that the helper correctly finds the iniswapped character ID
 	targetCharName := target.PairInfo().name
-	if targetCharName == "" {
-		targetCharName = characters[target.CharID()]
-	}
-	if targetCharName != "Miles Edgeworth" {
-		t.Errorf("Expected target displayed character to be 'Miles Edgeworth', got '%s'", targetCharName)
-	}
-
-	// Verify the character ID lookup works
-	targetCharID := getCharacterID(targetCharName)
-	if targetCharID != 1 {
-		t.Errorf("Expected target displayed character ID to be 1, got %d", targetCharID)
+	if targetCharName != "" {
+		targetCharID := getCharacterID(targetCharName)
+		if targetCharID != 1 {
+			t.Errorf("Expected iniswapped character ID to be 1 (Miles Edgeworth), got %d", targetCharID)
+		}
 	}
 
-	// Test case when PairInfo is empty (no IC messages sent yet)
+	// Test fallback case when PairInfo is empty (no IC messages sent yet)
 	target2 := &Client{
 		uid:        3,
 		char:       2, // Maya Fey
@@ -219,24 +230,17 @@ func TestPossessWithIniswap(t *testing.T) {
 		pos:        "wit",
 	}
 
-	// When PairInfo.name is empty, should fall back to actual character
-	targetCharName2 := target2.PairInfo().name
-	if targetCharName2 == "" {
-		targetCharName2 = characters[target2.CharID()]
-	}
-	if targetCharName2 != "Maya Fey" {
-		t.Errorf("Expected fallback to actual character 'Maya Fey', got '%s'", targetCharName2)
+	// When PairInfo.name is empty, code should fall back to actual character
+	if target2.PairInfo().name != "" {
+		t.Errorf("Expected target2 PairInfo name to be empty, got '%s'", target2.PairInfo().name)
 	}
 
-	// Test getCharacterID with invalid character name
-	invalidID := getCharacterID("NonexistentCharacter")
-	if invalidID != -1 {
-		t.Errorf("Expected getCharacterID to return -1 for invalid character, got %d", invalidID)
+	// Verify fallback to actual character works
+	fallbackCharName := target2.PairInfo().name
+	if fallbackCharName == "" {
+		fallbackCharName = characters[target2.CharID()]
 	}
-
-	// Test case-insensitive character lookup
-	edgeworthID2 := getCharacterID("miles edgeworth")
-	if edgeworthID2 != 1 {
-		t.Errorf("Expected case-insensitive lookup to find Miles Edgeworth (ID 1), got %d", edgeworthID2)
+	if fallbackCharName != "Maya Fey" {
+		t.Errorf("Expected fallback to actual character 'Maya Fey', got '%s'", fallbackCharName)
 	}
 }

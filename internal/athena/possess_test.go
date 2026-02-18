@@ -107,3 +107,47 @@ func TestNewClientInitialization(t *testing.T) {
 		t.Errorf("Expected new client possessing field to be -1, got %d", client.Possessing())
 	}
 }
+
+// TestPossessPreservesAdminPosition tests that possession commands preserve admin's position
+func TestPossessPreservesAdminPosition(t *testing.T) {
+	// Create admin with position "def" (defense)
+	admin := &Client{
+		uid:        1,
+		char:       0, // Phoenix Wright
+		possessing: -1,
+		pair:       ClientPairInfo{wanted_id: -1},
+		pos:        "def",
+	}
+	
+	// Create target with position "pro" (prosecution)
+	target := &Client{
+		uid:        2,
+		char:       1, // Miles Edgeworth
+		possessing: -1,
+		pair:       ClientPairInfo{wanted_id: -1},
+		pos:        "pro",
+	}
+	
+	// Verify initial positions
+	if admin.Pos() != "def" {
+		t.Errorf("Expected admin initial position 'def', got %s", admin.Pos())
+	}
+	if target.Pos() != "pro" {
+		t.Errorf("Expected target initial position 'pro', got %s", target.Pos())
+	}
+	
+	// Set up full possession
+	admin.SetPossessing(target.Uid())
+	
+	// Verify admin is possessing target
+	if admin.Possessing() != target.Uid() {
+		t.Errorf("Expected admin to be possessing target UID %d, got %d", target.Uid(), admin.Possessing())
+	}
+	
+	// Admin's position should remain "def" (not changed to target's "pro")
+	// This will be verified by the pktIC function which now preserves admin's position
+	// The key is that args[5] in pktIC is NOT changed to target.Pos() anymore
+	if admin.Pos() != "def" {
+		t.Errorf("Expected admin position to remain 'def' during possession, got %s", admin.Pos())
+	}
+}

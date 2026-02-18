@@ -223,6 +223,13 @@ func initCommands() {
 			desc:     "Creates a new moderator user.",
 			reqPerms: permissions.PermissionField["ADMIN"],
 		},
+		"makeover": {
+			handler:  cmdMakeover,
+			minArgs:  1,
+			usage:    "Usage: /makeover <character>",
+			desc:     "Forces all users to iniswap into the specified character (bypasses slot limit).",
+			reqPerms: permissions.PermissionField["ADMIN"],
+		},
 		"mod": {
 			handler:  cmdMod,
 			minArgs:  1,
@@ -1384,6 +1391,52 @@ func cmdMakeUser(client *Client, args []string, _ string) {
 	}
 	client.SendServerMessage("User created.")
 	addToBuffer(client, "CMD", fmt.Sprintf("Created user %v.", args[0]), true)
+}
+
+// Handles /makeover
+func cmdMakeover(client *Client, args []string, _ string) {
+	// Get the character name from args
+	charName := strings.Join(args, " ")
+	
+	// Validate that the character exists in the database
+	charID := getCharacterID(charName)
+	if charID == -1 {
+		client.SendServerMessage("Character not found in database.")
+		return
+	}
+	
+	// Count how many clients will be affected
+	var count int
+	
+	// Iterate through all clients and force iniswap
+	// Using iniswap bypasses the character slot limit
+	for c := range clients.GetAllClients() {
+		// Skip clients that are not fully joined (UID == -1)
+		if c.Uid() == -1 {
+			continue
+		}
+		
+		// Skip clients who don't have a character selected
+		if c.CharID() == -1 {
+			continue
+		}
+		
+		// Force iniswap to the target character
+		// This bypasses the slot limit and allows multiple people to appear as the same character
+		// Set emote, flip, and offset to empty so everyone has the same default appearance
+		c.SetPairInfo(charName, "", "", "")
+		
+		count++
+	}
+	
+	// Send confirmation message to the admin
+	client.SendServerMessage(fmt.Sprintf("Forced %d client(s) to iniswap into %s.", count, charName))
+	
+	// Log the action
+	addToBuffer(client, "CMD", fmt.Sprintf("Forced all clients to iniswap into %v.", charName), true)
+	
+	// Send a global server message to all clients
+	writeToAll("CT", encode(config.Name), encode(fmt.Sprintf("An admin has forced everyone to appear as %s.", charName)), "1")
 }
 
 // Handles /mod

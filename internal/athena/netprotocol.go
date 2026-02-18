@@ -205,7 +205,16 @@ func pktIC(client *Client, p *packet.Packet) {
 			// Use PairInfo().name if available (contains iniswapped character), otherwise use their actual character
 			targetCharName := target.PairInfo().name
 			if targetCharName == "" {
-				targetCharName = characters[target.CharID()]
+				// Bounds check before accessing characters array
+				if target.CharID() >= 0 && target.CharID() < len(characters) {
+					targetCharName = characters[target.CharID()]
+				} else {
+					// Invalid character, clear possession
+					client.SetPossessing(-1)
+					client.SetPossessedPos("")
+					client.SendServerMessage("Target has invalid character. Possession ended.")
+					return
+				}
 			}
 
 			// Get the character ID for the displayed character
@@ -213,7 +222,16 @@ func pktIC(client *Client, p *packet.Packet) {
 			if targetCharID == -1 {
 				// If character name is not found, fall back to target's actual character
 				targetCharID = target.CharID()
-				targetCharName = characters[targetCharID]
+				// Verify bounds before accessing characters array
+				if targetCharID >= 0 && targetCharID < len(characters) {
+					targetCharName = characters[targetCharID]
+				} else {
+					// Invalid character, clear possession
+					client.SetPossessing(-1)
+					client.SetPossessedPos("")
+					client.SendServerMessage("Target has invalid character. Possession ended.")
+					return
+				}
 			}
 
 			// Replace character and appearance with target's (including their saved position)

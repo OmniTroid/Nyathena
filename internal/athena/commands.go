@@ -1742,7 +1742,14 @@ func cmdPossess(client *Client, args []string, _ string) {
 	if targetCharID == -1 {
 		// If character name is not found, fall back to target's actual character
 		targetCharID = target.CharID()
-		targetCharName = characters[targetCharID]
+		// Bounds check is performed earlier (lines 1712-1715), but verify again for safety
+		if targetCharID >= 0 && targetCharID < len(characters) {
+			targetCharName = characters[targetCharID]
+		} else {
+			// This should never happen due to earlier validation, but handle it defensively
+			client.SendServerMessage("Target has an invalid character.")
+			return
+		}
 	}
 
 	// Create the IC message packet args following the MS packet format

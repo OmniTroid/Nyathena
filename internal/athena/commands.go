@@ -1682,40 +1682,59 @@ func cmdPair(client *Client, args []string, usage string) {
 	}
 }
 
-// sendPairVisualRefresh sends a minimal IC message to force client's area to refresh pairing visuals
+// sendPairVisualRefresh sends a minimal IC message to the client's area to clear pairing visuals.
+// The client parameter represents the character whose pairing visual needs to be cleared.
+// This function broadcasts a blank IC message to the entire area with no pairing info (args[16] = "-1"),
+// forcing all clients in the area to refresh and remove any ghost partner visuals for this character.
+// The message contains no text, animation, or sound effects to avoid visual disruption.
 func sendPairVisualRefresh(client *Client) {
-	// Send a blank IC message with no pairing info to force visual refresh
-	// This clears the ghost partner from the client's screen (and from other clients who see this character)
-	writeToArea(client.Area(), "MS", "chat",
-		"0",                     // pre-animation
-		characters[client.CharID()], // character name/folder
-		"",                      // emote
-		"",                      // message text
-		client.Pos(),            // position
-		"",                      // sfx-name
-		"0",                     // emote_modifier
+	// Construct a minimal IC (MS) packet with essential character info but no pairing
+	const (
+		msgType           = "chat"
+		preAnim           = "0"
+		emptyStr          = ""
+		emoteModifier     = "0"
+		evidence          = "0"
+		flip              = "0"
+		realization       = "0"
+		textColor         = "0"
+		noPairing         = "-1"  // Critical: indicates no pairing partner
+		selfOffset        = "0"
+		nonInterruptPre   = "0"
+		sfxLooping        = "0"
+		additive          = "0"
+	)
+
+	writeToArea(client.Area(), "MS", msgType,
+		preAnim,                       // pre-animation
+		characters[client.CharID()],   // character name/folder
+		emptyStr,                      // emote (no animation)
+		emptyStr,                      // message text (no speech bubble)
+		client.Pos(),                  // position
+		emptyStr,                      // sfx-name
+		emoteModifier,                 // emote_modifier
 		strconv.Itoa(client.CharID()), // cid
-		"",                      // sfx-delay
-		"",                      // objection_modifier
-		"0",                     // evidence
-		"0",                     // flip
-		"0",                     // realization
-		"0",                     // text_color
-		client.Showname(),       // showname
-		"-1",                    // other_charid (no pairing)
-		"",                      // other_name
-		"",                      // other_emote
-		"0",                     // self_offset
-		"",                      // other_offset
-		"",                      // other_flip
-		"0",                     // noninterrupting_preanim
-		"0",                     // sfx_looping
-		"",                      // screenshake
-		"",                      // frames_shake
-		"",                      // frames_realization
-		"",                      // frames_sfx
-		"0",                     // additive
-		"")                      // effect
+		emptyStr,                      // sfx-delay
+		emptyStr,                      // objection_modifier
+		evidence,                      // evidence
+		flip,                          // flip
+		realization,                   // realization
+		textColor,                     // text_color
+		client.Showname(),             // showname
+		noPairing,                     // other_charid (no pairing - clears ghost)
+		emptyStr,                      // other_name
+		emptyStr,                      // other_emote
+		selfOffset,                    // self_offset
+		emptyStr,                      // other_offset
+		emptyStr,                      // other_flip
+		nonInterruptPre,               // noninterrupting_preanim
+		sfxLooping,                    // sfx_looping
+		emptyStr,                      // screenshake
+		emptyStr,                      // frames_shake
+		emptyStr,                      // frames_realization
+		emptyStr,                      // frames_sfx
+		additive,                      // additive
+		emptyStr)                      // effect
 }
 
 // Handles /unpair

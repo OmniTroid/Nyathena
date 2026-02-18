@@ -641,12 +641,14 @@ A new pairing system that allows users to create persistent pairings with other 
 - When both paired players are in the same area, their IC messages will display as paired
 - When paired players are in different areas, they message independently
 - When they reunite in the same area, the pairing automatically syncs
-- Pairing survives character changes, position changes, and area changes
+- Pairing survives character changes, position changes, area changes, and offset changes
+- Each player's position offset (x,y coordinates) is tracked independently
 
 **Visual Display:**
 - When both paired users are in the same area and send IC messages, they appear as a pair
-- Uses the partner's current character, emote, and position for display
-- If the partner hasn't sent an IC message yet, defaults to their selected character
+- Uses the partner's current character, emote, offset, and flip from their previous message
+- Each player can change their own offset (x,y position) without breaking the pairing
+- If the partner hasn't sent an IC message yet, defaults to their selected character with no offset
 
 ### Examples
 
@@ -761,6 +763,7 @@ Server: You are not paired with anyone.
 | **Setup** | In-client UI buttons | `/pair` command |
 | **Duration** | Per-message | Until `/unpair` |
 | **Room changes** | Does not survive | Persists |
+| **Offset changes** | Resets pairing | Persists (offsets tracked independently) |
 | **Disconnect behavior** | N/A (per-message) | Auto-unpairs both players |
 
 ### Notes
@@ -769,6 +772,8 @@ Server: You are not paired with anyone.
 - **WebAO Compatible**: Works seamlessly with both regular AO2 clients and WebAO (browser-based clients)
 - **Automatic cleanup**: When a paired player disconnects, both players are automatically unpaired
 - The disconnecting player's partner receives a notification: "Your pair partner has disconnected. Pairing ended."
+- **Offset handling**: Each player's position offset (x,y coordinates) is tracked independently and doesn't break pairing
+- When paired, each player sees their partner's offset from the partner's most recent IC message
 - Logged in the game buffer for both players
 - Pairing data is stored in memory and resets on server restart
 - Only one persistent pair per player at a time
@@ -778,6 +783,7 @@ Comprehensive tests include:
 - Basic pairing and unpairing functionality
 - Persistence across room changes
 - Automatic unpairing on disconnect
+- Offset changes maintaining pairing
 - Mutual consent requirement
 - Independence from character-based pairing
 - Thread-safe concurrent access

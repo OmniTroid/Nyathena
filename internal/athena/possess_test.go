@@ -410,3 +410,75 @@ func TestPersistentPairingDisconnect(t *testing.T) {
 		t.Errorf("Expected client2 to be unpaired after partner disconnects, got %d", client2.PairedUID())
 	}
 }
+
+// TestPersistentPairingWithOffsets tests that persistent pairing works correctly when players change their offsets
+func TestPersistentPairingWithOffsets(t *testing.T) {
+	// Create two clients
+	client1 := &Client{
+		uid:       50,
+		char:      0,
+		pair:      ClientPairInfo{wanted_id: -1, name: "Phoenix Wright", emote: "normal", offset: "10&20", flip: "0"},
+		pairedUID: -1,
+	}
+	client2 := &Client{
+		uid:       60,
+		char:      1,
+		pair:      ClientPairInfo{wanted_id: -1, name: "Miles Edgeworth", emote: "confident", offset: "30&40", flip: "1"},
+		pairedUID: -1,
+	}
+
+	// Establish mutual pairing
+	client1.SetPairedUID(client2.Uid())
+	client2.SetPairedUID(client1.Uid())
+
+	// Verify pairing is established
+	if client1.PairedUID() != client2.Uid() {
+		t.Errorf("Expected client1 paired with client2 (%d), got %d", client2.Uid(), client1.PairedUID())
+	}
+	if client2.PairedUID() != client1.Uid() {
+		t.Errorf("Expected client2 paired with client1 (%d), got %d", client1.Uid(), client2.PairedUID())
+	}
+
+	// Client1 changes their offset
+	client1.SetPairInfo("Phoenix Wright", "thinking", "0", "50&60")
+
+	// Verify pairing is still intact after offset change
+	if client1.PairedUID() != client2.Uid() {
+		t.Errorf("Expected client1 still paired with client2 after offset change, got %d", client1.PairedUID())
+	}
+
+	// Verify the new offset is stored
+	pairInfo1 := client1.PairInfo()
+	if pairInfo1.offset != "50&60" {
+		t.Errorf("Expected client1 offset to be '50&60', got '%s'", pairInfo1.offset)
+	}
+
+	// Client2 changes their offset
+	client2.SetPairInfo("Miles Edgeworth", "smirking", "1", "70&80")
+
+	// Verify pairing is still intact after both players changed offsets
+	if client2.PairedUID() != client1.Uid() {
+		t.Errorf("Expected client2 still paired with client1 after offset change, got %d", client2.PairedUID())
+	}
+	if client1.PairedUID() != client2.Uid() {
+		t.Errorf("Expected client1 still paired with client2 after both offset changes, got %d", client1.PairedUID())
+	}
+
+	// Verify both offsets are stored independently
+	pairInfo1 = client1.PairInfo()
+	pairInfo2 := client2.PairInfo()
+	if pairInfo1.offset != "50&60" {
+		t.Errorf("Expected client1 offset to be '50&60', got '%s'", pairInfo1.offset)
+	}
+	if pairInfo2.offset != "70&80" {
+		t.Errorf("Expected client2 offset to be '70&80', got '%s'", pairInfo2.offset)
+	}
+
+	// Verify other pair info is maintained
+	if pairInfo1.name != "Phoenix Wright" {
+		t.Errorf("Expected client1 name to be 'Phoenix Wright', got '%s'", pairInfo1.name)
+	}
+	if pairInfo2.name != "Miles Edgeworth" {
+		t.Errorf("Expected client2 name to be 'Miles Edgeworth', got '%s'", pairInfo2.name)
+	}
+}

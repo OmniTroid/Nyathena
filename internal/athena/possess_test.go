@@ -118,7 +118,7 @@ func TestPossessPreservesAdminPosition(t *testing.T) {
 		pair:       ClientPairInfo{wanted_id: -1},
 		pos:        "def",
 	}
-	
+
 	// Create target with position "pro" (prosecution)
 	target := &Client{
 		uid:        2,
@@ -127,7 +127,7 @@ func TestPossessPreservesAdminPosition(t *testing.T) {
 		pair:       ClientPairInfo{wanted_id: -1},
 		pos:        "pro",
 	}
-	
+
 	// Verify initial positions
 	if admin.Pos() != "def" {
 		t.Errorf("Expected admin initial position 'def', got %s", admin.Pos())
@@ -135,15 +135,15 @@ func TestPossessPreservesAdminPosition(t *testing.T) {
 	if target.Pos() != "pro" {
 		t.Errorf("Expected target initial position 'pro', got %s", target.Pos())
 	}
-	
+
 	// Set up full possession
 	admin.SetPossessing(target.Uid())
-	
+
 	// Verify admin is possessing target
 	if admin.Possessing() != target.Uid() {
 		t.Errorf("Expected admin to be possessing target UID %d, got %d", target.Uid(), admin.Possessing())
 	}
-	
+
 	// Admin's position should remain "def" (not changed to target's "pro")
 	// This will be verified by the pktIC function which now preserves admin's position
 	// The key is that args[5] in pktIC is NOT changed to target.Pos() anymore

@@ -181,7 +181,7 @@ func pktIC(client *Client, p *packet.Packet) {
 
 	// Track if we're in fullpossess mode for validation adjustments
 	isPossessing := false
-	
+
 	// Full possession: Transform admin's IC messages to appear from target
 	if client.Possessing() != -1 {
 		target, err := getClientByUid(client.Possessing())
@@ -193,26 +193,26 @@ func pktIC(client *Client, p *packet.Packet) {
 			isPossessing = true
 			// Transform the message to use target's appearance
 			// Keep the admin's message content and position, but use target's character/colors/etc
-			
+
 			// Get target's emote, or use "normal" as fallback
 			targetEmote := target.PairInfo().emote
 			if targetEmote == "" {
 				targetEmote = "normal"
 			}
-			
+
 			// Replace character and appearance with target's (but keep admin's position in args[5])
 			args[2] = characters[target.CharID()]   // character name
 			args[3] = targetEmote                    // emote
 			// args[5] remains as admin's position
 			args[8] = strconv.Itoa(target.CharID()) // char_id
-			
+
 			// Use target's text color
 			targetTextColor := target.LastTextColor()
 			if targetTextColor == "" {
 				targetTextColor = "0"
 			}
 			args[14] = targetTextColor
-			
+
 			// Use target's showname
 			targetShowname := target.Showname()
 			if strings.TrimSpace(targetShowname) == "" {
@@ -223,24 +223,24 @@ func pktIC(client *Client, p *packet.Packet) {
 	}
 
 	client.SetPos(args[5])
-	
+
 	// Check and clean up expired punishments
 	if client.CheckExpiredPunishments() {
 		client.SendServerMessage("One or more punishments have expired.")
 	}
-	
+
 	// Apply punishment text modifications
 	// Note: punishments is a copy of the active punishments
 	// State modifications must use UpdatePunishmentState to persist changes
 	punishments := client.GetActivePunishments()
 	for i := range punishments {
 		p := &punishments[i]
-		
+
 		// Apply text modifications
 		if args[4] != "" {
 			decodedMsg := decode(args[4])
 			var modifiedMsg string
-			
+
 			// Use state-aware version for punishments that need it
 			if p.punishmentType == PunishmentTorment {
 				client.UpdatePunishmentState(p.punishmentType, func(ps *PunishmentState) {
@@ -251,18 +251,18 @@ func pktIC(client *Client, p *packet.Packet) {
 			}
 			args[4] = encode(modifiedMsg)
 		}
-		
+
 		// Handle name modifications
 		if p.punishmentType == PunishmentEmoji {
 			args[3] = GetRandomEmoji()
 		}
 	}
-	
+
 	if client.IsParrot() { // Bring out the parrot please.
 		args[4] = getParrotMsg()
 	}
 	if client.IsNarrator() {
-		args[3] = ""	
+		args[3] = ""
 	}
 	emote_mod, err := strconv.Atoi(args[7])
 	if err != nil {
@@ -454,7 +454,7 @@ func pktIC(client *Client, p *packet.Packet) {
 		client.SetShowname(args[15])
 	}
 	client.Area().SetLastSpeaker(client.CharID())
-	
+
 	// Track tournament message count
 	if tournamentActive {
 		tournamentMutex.Lock()
@@ -463,7 +463,7 @@ func pktIC(client *Client, p *packet.Packet) {
 		}
 		tournamentMutex.Unlock()
 	}
-	
+
 	writeToArea(client.Area(), "MS", args...)
 	addToBuffer(client, "IC", "\""+args[4]+"\"", false)
 }

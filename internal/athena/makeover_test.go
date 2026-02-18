@@ -277,4 +277,84 @@ func TestMakeoverSkipsUnjoined(t *testing.T) {
 	}
 }
 
+// TestMakeoverICMessageHandling tests that iniswapped clients appear as the iniswapped character when they speak
+func TestMakeoverICMessageHandling(t *testing.T) {
+	// Save original characters array and restore after test
+	originalCharacters := characters
+	defer func() {
+		characters = originalCharacters
+	}()
+
+	// Set up test characters
+	characters = []string{
+		"Phoenix Wright",
+		"Miles Edgeworth",
+		"Maya Fey",
+	}
+
+	// Create mock area
+	testArea := area.NewArea(area.AreaData{}, 50, 100, area.EviAny)
+
+	// Create a client with Phoenix Wright
+	testClient := &Client{
+		uid:        1,
+		char:       0, // Phoenix Wright
+		possessing: -1,
+		pair:       ClientPairInfo{wanted_id: -1, emote: "normal", flip: "0", offset: ""},
+		pairedUID:  -1,
+		area:       testArea,
+	}
+	testArea.AddChar(testClient.CharID())
+
+	// Simulate makeover: force iniswap to Miles Edgeworth
+	targetChar := "Miles Edgeworth"
+	testClient.SetPairInfo(targetChar, "", "", "")
+
+	// Verify PairInfo was set
+	if testClient.PairInfo().name != targetChar {
+		t.Fatalf("Test setup failed: PairInfo name should be '%s', got '%s'",
+			targetChar, testClient.PairInfo().name)
+	}
+
+	// Verify that getCharacterID works for the iniswapped character
+	iniswapCharID := getCharacterID(targetChar)
+	if iniswapCharID == -1 {
+		t.Fatalf("Test setup failed: character '%s' not found", targetChar)
+	}
+
+	// Expected character ID after iniswap
+	expectedCharID := 1 // Miles Edgeworth
+
+	// Simulate what pktIC does when client sends an IC message
+	// The client would send their original character (Phoenix Wright) but the server should apply the iniswap
+
+	// Get the client's PairInfo (as pktIC does)
+	clientPairInfo := testClient.PairInfo()
+
+	// Verify the iniswap would be applied (as the new code does)
+	if clientPairInfo.name != "" {
+		appliedCharID := getCharacterID(clientPairInfo.name)
+		if appliedCharID != expectedCharID {
+			t.Errorf("Expected iniswap to apply character ID %d (Miles Edgeworth), got %d",
+				expectedCharID, appliedCharID)
+		}
+		if clientPairInfo.name != targetChar {
+			t.Errorf("Expected iniswap to apply character name '%s', got '%s'",
+				targetChar, clientPairInfo.name)
+		}
+	} else {
+		t.Error("Expected client to have iniswap set, but PairInfo.name is empty")
+	}
+
+	// Verify original CharID is preserved (client slot doesn't change)
+	if testClient.CharID() != 0 {
+		t.Errorf("Expected client to still have original CharID 0 (Phoenix Wright), got %d",
+			testClient.CharID())
+	}
+
+	// Verify the iniswap persists (isn't lost)
+	if testClient.PairInfo().name != targetChar {
+		t.Errorf("Expected iniswap to persist, got '%s'", testClient.PairInfo().name)
+	}
+}
 

@@ -188,11 +188,12 @@ func pktIC(client *Client, p *packet.Packet) {
 		if err != nil {
 			// Target no longer exists, clear possession
 			client.SetPossessing(-1)
+			client.SetPossessedPos("")
 			client.SendServerMessage("Target disconnected. Possession ended.")
 		} else {
 			isPossessing = true
 			// Transform the message to use target's appearance
-			// Keep the admin's message content and position, but use target's character/colors/etc
+			// Use the saved target position (from when possession started) to fully spoof them
 
 			// Get target's emote, or use "normal" as fallback
 			targetEmote := target.PairInfo().emote
@@ -200,10 +201,10 @@ func pktIC(client *Client, p *packet.Packet) {
 				targetEmote = "normal"
 			}
 
-			// Replace character and appearance with target's (but keep admin's position in args[5])
+			// Replace character and appearance with target's (including their saved position)
 			args[2] = characters[target.CharID()]   // character name
 			args[3] = targetEmote                    // emote
-			// args[5] remains as admin's position
+			args[5] = client.PossessedPos()          // position (saved target position)
 			args[8] = strconv.Itoa(target.CharID()) // char_id
 
 			// Use target's text color

@@ -112,20 +112,22 @@ func TestNewClientInitialization(t *testing.T) {
 func TestPossessPreservesAdminPosition(t *testing.T) {
 	// Create admin with position "def" (defense)
 	admin := &Client{
-		uid:        1,
-		char:       0, // Phoenix Wright
-		possessing: -1,
-		pair:       ClientPairInfo{wanted_id: -1},
-		pos:        "def",
+		uid:          1,
+		char:         0, // Phoenix Wright
+		possessing:   -1,
+		possessedPos: "",
+		pair:         ClientPairInfo{wanted_id: -1},
+		pos:          "def",
 	}
 
 	// Create target with position "pro" (prosecution)
 	target := &Client{
-		uid:        2,
-		char:       1, // Miles Edgeworth
-		possessing: -1,
-		pair:       ClientPairInfo{wanted_id: -1},
-		pos:        "pro",
+		uid:          2,
+		char:         1, // Miles Edgeworth
+		possessing:   -1,
+		possessedPos: "",
+		pair:         ClientPairInfo{wanted_id: -1},
+		pos:          "pro",
 	}
 
 	// Verify initial positions
@@ -138,16 +140,21 @@ func TestPossessPreservesAdminPosition(t *testing.T) {
 
 	// Set up full possession
 	admin.SetPossessing(target.Uid())
+	admin.SetPossessedPos(target.Pos()) // Save target's position
 
 	// Verify admin is possessing target
 	if admin.Possessing() != target.Uid() {
 		t.Errorf("Expected admin to be possessing target UID %d, got %d", target.Uid(), admin.Possessing())
 	}
 
-	// Admin's position should remain "def" (not changed to target's "pro")
-	// This will be verified by the pktIC function which now preserves admin's position
-	// The key is that args[5] in pktIC is NOT changed to target.Pos() anymore
+	// Admin should have saved the target's position "pro"
+	if admin.PossessedPos() != "pro" {
+		t.Errorf("Expected admin to have saved target position 'pro', got %s", admin.PossessedPos())
+	}
+
+	// The pktIC function will use admin.PossessedPos() to spoof the target's position
+	// Admin's own position remains "def" but messages will appear at "pro"
 	if admin.Pos() != "def" {
-		t.Errorf("Expected admin position to remain 'def' during possession, got %s", admin.Pos())
+		t.Errorf("Expected admin's own position to remain 'def', got %s", admin.Pos())
 	}
 }

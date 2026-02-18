@@ -19,6 +19,7 @@ package logger
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -197,7 +198,7 @@ func CreateAreaLogDirectory(areaName string) error {
 		return nil
 	}
 	safeAreaName := sanitizeAreaName(areaName)
-	dirPath := fmt.Sprintf("%s/%s", LogPath, safeAreaName)
+	dirPath := filepath.Join(LogPath, safeAreaName)
 	err := os.MkdirAll(dirPath, 0755)
 	if err != nil {
 		return fmt.Errorf("failed to create area log directory: %w", err)
@@ -224,7 +225,7 @@ func WriteAreaLog(areaName, logEntry string) {
 
 	// Generate daily log file name
 	today := time.Now().Format("2006-01-02")
-	filename := fmt.Sprintf("%s/%s/%s-%s.txt", LogPath, safeAreaName, safeAreaName, today)
+	filename := filepath.Join(LogPath, safeAreaName, fmt.Sprintf("%s-%s.txt", safeAreaName, today))
 
 	// Open or create the file with append mode
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)

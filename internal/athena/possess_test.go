@@ -569,3 +569,99 @@ func TestSendClearPairPacketContent(t *testing.T) {
 		t.Errorf("Expected pair character name (args[17]) to be empty to clear WebAO ghost sprite, got %q", fields[18])
 	}
 }
+
+// TestSendClearPairPacketToSendsToRecipient verifies that sendClearPairPacketTo
+// sends the MS# packet to the recipient's connection and uses the subject's
+// character information (name, char_id, position) rather than the recipient's.
+// This is needed to clear the partner's ghost sprite on the unpairing client's
+// display: WebAO tracks sprites per-pane (def/pro/wit), so clearing the ghost
+// requires a packet from the partner's perspective sent to the unpairing client.
+func TestSendClearPairPacketToSendsToRecipient(t *testing.T) {
+	originalCharacters := characters
+	t.Cleanup(func() {
+		characters = originalCharacters
+	})
+	characters = []string{"Phoenix Wright", "Miles Edgeworth"}
+
+	// Set up two connected pipes: one for the subject, one for the recipient.
+	subjectServerConn, _ := net.Pipe()
+	defer subjectServerConn.Close()
+
+	recipientServerConn, recipientClientConn := net.Pipe()
+	defer recipientServerConn.Close()
+	defer recipientClientConn.Close()
+
+	// subject is Miles Edgeworth at "pro" — this simulates the pair partner
+	// whose ghost sprite needs to be cleared from the unpairing client's display.
+	subject := &Client{
+		conn:      subjectServerConn,
+		char:      1, // Miles Edgeworth
+		pair:      ClientPairInfo{wanted_id: -1, name: "Miles Edgeworth", emote: "confident"},
+		pairedUID: -1,
+		pos:       "pro",
+		showname:  "Edgeworth",
+	}
+
+	// recipient is Phoenix Wright at "def" — this is the client who typed /unpair.
+	recipient := &Client{
+		conn:      recipientServerConn,
+		char:      0, // Phoenix Wright
+		pair:      ClientPairInfo{wanted_id: -1, name: "Phoenix Wright", emote: "normal"},
+		pairedUID: -1,
+		pos:       "def",
+		showname:  "Phoenix",
+	}
+
+	// Read the packet on the recipient's side in a goroutine.
+	done := make(chan string, 1)
+	go func() {
+		buf := make([]byte, 4096)
+		n, _ := recipientClientConn.Read(buf)
+		done <- string(buf[:n])
+	}()
+
+	sendClearPairPacketTo(subject, recipient)
+
+	recipientServerConn.Close()
+	packet := <-done
+
+	if !strings.HasPrefix(packet, "MS#") {
+		t.Errorf("Expected MS# packet sent to recipient, got: %q", packet)
+	}
+
+	fields := strings.Split(packet, "#")
+	// fields[0] = "MS", fields[1..30] = args[0..29], fields[31] = "%"
+	if len(fields) < 19 {
+		t.Fatalf("Packet too short (got %d fields): %q", len(fields), packet)
+	}
+
+	// fields[3] = args[2] = char_name — must be subject's character ("Miles Edgeworth")
+	if fields[3] != "Miles Edgeworth" {
+		t.Errorf("Expected char_name (args[2]) to be subject's character \"Miles Edgeworth\", got %q", fields[3])
+	}
+
+	// fields[6] = args[5] = position — must be subject's position ("pro")
+	if fields[6] != "pro" {
+		t.Errorf("Expected position (args[5]) to be subject's position \"pro\", got %q", fields[6])
+	}
+
+	// fields[9] = args[8] = char_id — must be subject's char_id (1 = Miles Edgeworth)
+	if fields[9] != "1" {
+		t.Errorf("Expected char_id (args[8]) to be subject's char_id \"1\", got %q", fields[9])
+	}
+
+	// fields[5] = args[4] = message — must be empty so chatbox is hidden
+	if fields[5] != "" {
+		t.Errorf("Expected empty message content (args[4]) to hide chatbox, got %q", fields[5])
+	}
+
+	// fields[17] = args[16] = pair_id — must be "-1"
+	if fields[17] != "-1" {
+		t.Errorf("Expected pair_id (args[16]) to be \"-1\", got %q", fields[17])
+	}
+
+	// fields[18] = args[17] = pair character name — must be empty to clear WebAO pair sprite
+	if fields[18] != "" {
+		t.Errorf("Expected pair character name (args[17]) to be empty to clear WebAO ghost sprite, got %q", fields[18])
+	}
+}

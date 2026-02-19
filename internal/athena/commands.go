@@ -1643,18 +1643,27 @@ func cmdParrot(client *Client, args []string, usage string) {
 // pair character name (icArgs[17]) causes WebAO to hide the pair sprite.
 // The message content is empty so the chatbox is hidden on WebAO as well.
 func sendClearPairPacket(client *Client) {
-	if client.CharID() < 0 || client.CharID() >= len(characters) {
+	sendClearPairPacketTo(client, client)
+}
+
+// sendClearPairPacketTo sends a server-generated empty IC packet to recipient
+// using subject's character information (name, emote, position, char_id). This
+// clears subject's ghost pair sprite on recipient's display. WebAO tracks pair
+// sprites per-pane (def/pro/wit); a clear packet must use the correct position
+// so the right pane's pair sprite is hidden.
+func sendClearPairPacketTo(subject *Client, recipient *Client) {
+	if subject.CharID() < 0 || subject.CharID() >= len(characters) {
 		return
 	}
-	charName := client.PairInfo().name
+	charName := subject.PairInfo().name
 	if charName == "" {
-		charName = characters[client.CharID()]
+		charName = characters[subject.CharID()]
 	}
-	emote := client.PairInfo().emote
+	emote := subject.PairInfo().emote
 	if emote == "" {
 		emote = "normal"
 	}
-	showname := client.Showname()
+	showname := subject.Showname()
 	if strings.TrimSpace(showname) == "" {
 		showname = charName
 	}
@@ -1664,11 +1673,11 @@ func sendClearPairPacket(client *Client) {
 	args[1] = ""
 	args[2] = charName
 	args[3] = emote
-	args[4] = ""                        // empty message hides chatbox on WebAO
-	args[5] = client.Pos()
+	args[4] = ""                         // empty message hides chatbox on WebAO
+	args[5] = subject.Pos()
 	args[6] = ""
 	args[7] = "0"
-	args[8] = strconv.Itoa(client.CharID())
+	args[8] = strconv.Itoa(subject.CharID())
 	args[9] = "0"
 	args[10] = "0"
 	args[11] = "0"
@@ -1676,8 +1685,8 @@ func sendClearPairPacket(client *Client) {
 	args[13] = "0"
 	args[14] = "0"
 	args[15] = showname
-	args[16] = "-1"                     // no pair_id
-	args[17] = ""                       // empty pair character name clears WebAO pair sprite
+	args[16] = "-1"                      // no pair_id
+	args[17] = ""                        // empty pair character name clears WebAO pair sprite
 	args[18] = ""
 	args[19] = ""
 	args[20] = ""
@@ -1691,7 +1700,7 @@ func sendClearPairPacket(client *Client) {
 	args[28] = "0"
 	args[29] = ""
 
-	client.SendPacket("MS", args...)
+	recipient.SendPacket("MS", args...)
 }
 
 // Handles /pair
@@ -1753,6 +1762,11 @@ func cmdUnpair(client *Client, _ []string, _ string) {
 		paired.SetPairedUID(-1)
 		paired.SendServerMessage(fmt.Sprintf("%s (UID: %d) has ended the pairing.", client.OOCName(), client.Uid()))
 		sendClearPairPacket(paired)
+		// Also clear the partner's ghost sprite on the unpairing client's display.
+		// WebAO tracks sprites per-pane; the partner's sprite may be in a different
+		// pane than the unpairing client's own character, so a separate clear packet
+		// using the partner's position is required to remove it.
+		sendClearPairPacketTo(paired, client)
 	}
 
 	client.SetPairedUID(-1)

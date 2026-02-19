@@ -93,8 +93,8 @@ func applicationCommands() []*discordgo.ApplicationCommand {
 			Description: "Ban a player from the server.",
 			Options: []*discordgo.ApplicationCommandOption{
 				{Type: discordgo.ApplicationCommandOptionString, Name: "player", Description: "UID or OOC name.", Required: true},
-				{Type: discordgo.ApplicationCommandOptionString, Name: "duration", Description: "Duration (e.g. 3d, 1w). Leave blank for permanent.", Required: false},
 				{Type: discordgo.ApplicationCommandOptionString, Name: "reason", Description: "Reason for ban.", Required: true},
+				{Type: discordgo.ApplicationCommandOptionString, Name: "duration", Description: "Duration (e.g. 3d, 1w). Leave blank for permanent.", Required: false},
 			},
 		},
 		{

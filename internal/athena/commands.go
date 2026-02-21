@@ -867,6 +867,13 @@ func cmdBan(client *Client, args []string, usage string) {
 		until = time.Now().UTC().Add(parsedDur).Unix()
 	}
 
+	var untilS string
+	if until == -1 {
+		untilS = "∞"
+	} else {
+		untilS = time.Unix(until, 0).UTC().Format("02 Jan 2006 15:04 MST")
+	}
+
 	var count int
 	var report string
 	if len(*uids) > 0 {
@@ -874,12 +881,6 @@ func cmdBan(client *Client, args []string, usage string) {
 			id, err := db.AddBan(c.Ipid(), c.Hdid(), banTime, until, reason, client.ModName())
 			if err != nil {
 				continue
-			}
-			var untilS string
-			if until == -1 {
-				untilS = "∞"
-			} else {
-				untilS = time.Unix(until, 0).UTC().Format("02 Jan 2006 15:04 MST")
 			}
 			if !strings.Contains(report, c.Ipid()) {
 				report += c.Ipid() + ", "
@@ -898,12 +899,6 @@ func cmdBan(client *Client, args []string, usage string) {
 			id, err := db.AddBan(ipid, hdid, banTime, until, reason, client.ModName())
 			if err != nil {
 				continue
-			}
-			var untilS string
-			if until == -1 {
-				untilS = "∞"
-			} else {
-				untilS = time.Unix(until, 0).UTC().Format("02 Jan 2006 15:04 MST")
 			}
 			if !strings.Contains(report, ipid) {
 				report += ipid + ", "

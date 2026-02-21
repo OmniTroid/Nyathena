@@ -95,8 +95,17 @@ func cmdGiveaway(client *Client, args []string, usage string) {
 // ── Start ────────────────────────────────────────────────────────────────────
 
 // giveawayStart validates preconditions and opens a new giveaway.
+// Client fields are read before acquiring giveaway.mu to minimise lock duration
+// and avoid holding two locks (client.mu + giveaway.mu) simultaneously.
 // State is mutated under the lock; all I/O follows after the lock is released.
 func giveawayStart(client *Client, item string) {
+	// Read client fields outside giveaway.mu to keep the critical section short.
+	uid := client.Uid()
+	hostName := client.Showname()
+	if hostName == "" {
+		hostName = client.OOCName()
+	}
+
 	giveaway.mu.Lock()
 
 	if giveaway.active {
@@ -113,14 +122,9 @@ func giveawayStart(client *Client, item string) {
 		}
 	}
 
-	hostName := client.Showname()
-	if hostName == "" {
-		hostName = client.OOCName()
-	}
-
 	giveaway.active = true
 	giveaway.item = item
-	giveaway.hostUID = client.Uid()
+	giveaway.hostUID = uid
 	giveaway.hostName = hostName
 	giveaway.entrants = make(map[int]struct{})
 	giveaway.mu.Unlock()
@@ -138,8 +142,12 @@ func giveawayStart(client *Client, item string) {
 // ── Enter ────────────────────────────────────────────────────────────────────
 
 // giveawayEnter records a player's entry in the active giveaway.
-// The lock is held only for state mutation; messages are sent after release.
+// The client UID is read before acquiring giveaway.mu to avoid holding two
+// locks simultaneously. The lock is held only for state mutation; messages
+// are sent after release.
 func giveawayEnter(client *Client) {
+	uid := client.Uid() // read before acquiring giveaway.mu
+
 	giveaway.mu.Lock()
 
 	if !giveaway.active {
@@ -148,7 +156,6 @@ func giveawayEnter(client *Client) {
 		return
 	}
 
-	uid := client.Uid()
 	if _, already := giveaway.entrants[uid]; already {
 		giveaway.mu.Unlock()
 		client.SendServerMessage("You have already entered the giveaway.")
@@ -166,11 +173,17 @@ func giveawayEnter(client *Client) {
 
 // ── Background timer ─────────────────────────────────────────────────────────
 
-// giveawayTimer sleeps for the reminder window, sends a 1-minute warning, then
-// waits for the final minute before picking and announcing the winner.
+// giveawayTimer manages the giveaway lifecycle using two independent timers
+// started at the same instant, so the giveaway always ends exactly
+// giveawayDuration after it starts regardless of reminder-processing time.
+// defer end.Stop() releases the end timer's resources on any early return.
 func giveawayTimer(item, hostName string) {
-	// Wait until 1 minute remains.
-	time.Sleep(giveawayReminder)
+	reminder := time.NewTimer(giveawayReminder)
+	end := time.NewTimer(giveawayDuration)
+	defer end.Stop()
+
+	// ── Reminder ──────────────────────────────────────────────────────────────
+	<-reminder.C
 
 	giveaway.mu.Lock()
 	if !giveaway.active {
@@ -186,8 +199,8 @@ func giveawayTimer(item, hostName string) {
 		hostName, item, count,
 	))
 
-	// Wait the final minute.
-	time.Sleep(giveawayDuration - giveawayReminder)
+	// ── End ───────────────────────────────────────────────────────────────────
+	<-end.C
 
 	// Atomically close the giveaway and snapshot entrant UIDs.
 	giveaway.mu.Lock()
@@ -197,21 +210,23 @@ func giveawayTimer(item, hostName string) {
 	}
 	giveaway.active = false
 	giveaway.lastEnd = time.Now().UTC()
-	entrantUIDs := make([]int, 0, len(giveaway.entrants))
+	uids := make([]int, 0, len(giveaway.entrants))
 	for uid := range giveaway.entrants {
-		entrantUIDs = append(entrantUIDs, uid)
+		uids = append(uids, uid)
 	}
 	giveaway.mu.Unlock()
 
-	// Filter to still-connected players — outside the lock.
-	validUIDs := make([]int, 0, len(entrantUIDs))
-	for _, uid := range entrantUIDs {
+	// Filter disconnected players in-place — avoids a second heap allocation.
+	n := 0
+	for _, uid := range uids {
 		if _, err := getClientByUid(uid); err == nil {
-			validUIDs = append(validUIDs, uid)
+			uids[n] = uid
+			n++
 		}
 	}
+	uids = uids[:n]
 
-	if len(validUIDs) == 0 {
+	if n == 0 {
 		sendGlobalServerMessage(fmt.Sprintf(
 			"🎁 GIVEAWAY ENDED! Nobody entered %v's giveaway for: %v. No winner this time!",
 			hostName, item,
@@ -219,7 +234,7 @@ func giveawayTimer(item, hostName string) {
 		return
 	}
 
-	winnerUID := validUIDs[rand.Intn(len(validUIDs))]
+	winnerUID := uids[rand.Intn(n)]
 	winner, err := getClientByUid(winnerUID)
 	if err != nil {
 		sendGlobalServerMessage("🎁 GIVEAWAY ENDED! The winner disconnected before they could be announced.")

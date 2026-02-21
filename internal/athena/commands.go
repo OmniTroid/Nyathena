@@ -892,20 +892,38 @@ func cmdBan(client *Client, args []string, usage string) {
 	} else {
 		for _, ipid := range *ipids {
 			onlineClients := getClientsByIpid(ipid)
-			hdid := ""
-			if len(onlineClients) > 0 {
-				hdid = onlineClients[0].Hdid()
-			}
-			id, err := db.AddBan(ipid, hdid, banTime, until, reason, client.ModName())
-			if err != nil {
-				continue
+			if len(onlineClients) == 0 {
+				// Offline ban – no HDID available.
+				if _, err := db.AddBan(ipid, "", banTime, until, reason, client.ModName()); err != nil {
+					continue
+				}
+			} else {
+				// Online ban – record each unique HDID so the ban holds if the user
+				// reconnects from a different IP address.
+				banIDByHdid := make(map[string]int)
+				for _, c := range onlineClients {
+					if _, done := banIDByHdid[c.Hdid()]; done {
+						continue
+					}
+					id, err := db.AddBan(c.Ipid(), c.Hdid(), banTime, until, reason, client.ModName())
+					if err == nil {
+						banIDByHdid[c.Hdid()] = id
+					}
+				}
+				if len(banIDByHdid) == 0 {
+					continue
+				}
+				for _, c := range onlineClients {
+					if id, ok := banIDByHdid[c.Hdid()]; ok {
+						c.SendPacket("KB", fmt.Sprintf("%v\nUntil: %v\nID: %v", reason, untilS, id))
+					} else {
+						c.SendPacket("KB", fmt.Sprintf("%v\nUntil: %v", reason, untilS))
+					}
+					c.conn.Close()
+				}
 			}
 			if !strings.Contains(report, ipid) {
 				report += ipid + ", "
-			}
-			for _, c := range onlineClients {
-				c.SendPacket("KB", fmt.Sprintf("%v\nUntil: %v\nID: %v", reason, untilS, id))
-				c.conn.Close()
 			}
 			count++
 		}

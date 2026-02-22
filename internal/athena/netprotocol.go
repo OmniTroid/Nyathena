@@ -183,6 +183,14 @@ func pktIC(client *Client, p *packet.Packet) {
 	args = append(args[:19], args[17:]...)
 	args = append(args[:20], args[18:]...)
 
+	// Save the admin's own args before any fullpossess transformation so that
+	// state updates (showname, pairInfo, textColor) always reflect the admin's
+	// own character — not the target's — even during fullpossess.
+	ownCharName := args[2]
+	ownEmote := args[3]
+	ownTextColor := args[14]
+	ownShowname := args[15]
+
 	// Track if we're in fullpossess mode for validation adjustments
 	isPossessing := false
 
@@ -510,14 +518,17 @@ func pktIC(client *Client, p *packet.Packet) {
 		}
 	}
 
-	client.SetPairInfo(args[2], args[3], args[12], args[19])
+	// Use the admin's own (pre-transformation) values for state updates so that
+	// the admin's showname, pairInfo and textColor are never overwritten with
+	// the target's during fullpossess.
+	client.SetPairInfo(ownCharName, ownEmote, args[12], args[19])
 	client.SetLastMsg(args[4])
-	client.SetLastTextColor(args[14])
+	client.SetLastTextColor(ownTextColor)
 	prevShowname := client.Showname()
-	if strings.TrimSpace(args[15]) == "" {
+	if strings.TrimSpace(ownShowname) == "" {
 		client.SetShowname(characters[client.CharID()])
 	} else {
-		client.SetShowname(args[15])
+		client.SetShowname(ownShowname)
 	}
 	// Only broadcast a PU showname update when the showname actually changed.
 	if client.Showname() != prevShowname {

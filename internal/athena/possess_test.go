@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 package athena
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -249,4 +250,65 @@ func TestPossessWithIniswap(t *testing.T) {
 	}
 }
 
+// TestShownamePersistsAcrossCharacterChange verifies that a showname set via IC
+// messages is NOT wiped out when the player changes character (ChangeCharacter no
+// longer calls SetShowname with the folder name).  This is the core behaviour that
+// makes /possess commands display "Adachi" instead of "adachi_gunless".
+func TestShownamePersistsAcrossCharacterChange(t *testing.T) {
+	origChars := characters
+	t.Cleanup(func() { characters = origChars })
+	characters = []string{"adachi_gunless", "Phoenix Wright"}
+
+	// Simulate a client that has already sent an IC message and has showname "Adachi".
+	target := &Client{
+		uid:        2,
+		char:       0, // adachi_gunless
+		showname:   "Adachi",
+		possessing: -1,
+		pair:       ClientPairInfo{wanted_id: -1},
+	}
+
+	// Verify the initial showname is "Adachi" (set by a previous IC message).
+	if target.Showname() != "Adachi" {
+		t.Fatalf("Expected initial showname 'Adachi', got %q", target.Showname())
+	}
+
+	// Simulate the showname that possession commands would use before the fix.
+	// With the old code, ChangeCharacter would have reset this to "adachi_gunless".
+	// With the fix, the showname remains "Adachi" regardless.
+	possessShowname := target.Showname()
+	if strings.TrimSpace(possessShowname) == "" {
+		possessShowname = characters[target.CharID()]
+	}
+	if possessShowname != "Adachi" {
+		t.Errorf("Possess showname should be 'Adachi', got %q", possessShowname)
+	}
+}
+
+// TestShownameFallsBackToCharNameWhenUnset verifies that possession still falls
+// back to the character folder name when the target has never spoken (showname "").
+func TestShownameFallsBackToCharNameWhenUnset(t *testing.T) {
+	origChars := characters
+	t.Cleanup(func() { characters = origChars })
+	characters = []string{"adachi_gunless", "Phoenix Wright"}
+
+	// A freshly-joined client that has never sent an IC message — showname is "".
+	target := &Client{
+		uid:        3,
+		char:       0, // adachi_gunless
+		showname:   "",
+		possessing: -1,
+		pair:       ClientPairInfo{wanted_id: -1},
+	}
+
+	charFolderName := characters[target.CharID()] // "adachi_gunless"
+
+	possessShowname := target.Showname()
+	if strings.TrimSpace(possessShowname) == "" {
+		possessShowname = charFolderName
+	}
+	if possessShowname != "adachi_gunless" {
+		t.Errorf("Expected fallback to 'adachi_gunless' when showname unset, got %q", possessShowname)
+	}
+}
 

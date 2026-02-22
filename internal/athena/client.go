@@ -739,7 +739,9 @@ func (client *Client) CanAlterEvidence() bool {
 func (client *Client) ChangeCharacter(id int) {
 	if client.Area().SwitchChar(client.CharID(), id) {
 		client.SetCharID(id)
-		client.SetShowname(client.CurrentCharacter())
+		// Do not reset showname here; it is set from IC messages so the
+		// player's display name (e.g. "Adachi") persists across character
+		// changes and is used correctly by possession commands.
 		client.SendPacket("PV", "0", "CID", strconv.Itoa(id))
 		writeToArea(client.Area(), "CharsCheck", client.Area().Taken()...)
 		if client.Uid() != -1 {

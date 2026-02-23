@@ -370,6 +370,13 @@ func initCommands() {
 			desc:     "Rolls dice.",
 			reqPerms: permissions.PermissionField["NONE"],
 		},
+		"randomchar": {
+			handler:  cmdRandomChar,
+			minArgs:  0,
+			usage:    "Usage: /randomchar",
+			desc:     "Selects a random free character.",
+			reqPerms: permissions.PermissionField["NONE"],
+		},
 		"rps": {
 			handler:  cmdRps,
 			minArgs:  1,
@@ -998,6 +1005,16 @@ func cmdCharSelect(client *Client, args []string, _ string) {
 		client.SendServerMessage(fmt.Sprintf("Moved %v users to character select.", count))
 		addToBuffer(client, "CMD", fmt.Sprintf("Moved %v to character select.", report), false)
 	}
+}
+
+// Handles /randomchar
+func cmdRandomChar(client *Client, _ []string, _ string) {
+	newid := getRandomFreeChar(client)
+	if newid == -1 {
+		client.SendServerMessage("No free characters available.")
+		return
+	}
+	client.ChangeCharacter(newid)
 }
 
 // Handles /cm

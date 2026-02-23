@@ -112,7 +112,7 @@ func pktResCount(client *Client, _ *packet.Packet) {
 		return
 	}
 	client.joining = true // This simply exists to prevent skipping the askchaa#% packet and bypassing the player count check.
-	client.SendPacket("SI", strconv.Itoa(len(characters)), strconv.Itoa(len(areas[0].Evidence())), strconv.Itoa(len(music)))
+	client.SendPacket("SI", strconv.Itoa(len(characters)), strconv.Itoa(len(areas[0].Evidence())), strconv.Itoa(len(areas)+len(music)))
 }
 
 // Handles RC#%

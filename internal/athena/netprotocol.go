@@ -459,6 +459,11 @@ func pktIC(client *Client, p *packet.Packet) {
 			if client.ForcePairUID() >= 0 && !isForce {
 				continue
 			}
+			// Also guard the candidate: if c is already UID-committed to a different partner,
+			// it must not be matched by anyone other than that partner.
+			if c.ForcePairUID() >= 0 && c.ForcePairUID() != client.Uid() {
+				continue
+			}
 			if c.CharID() == pid && c.PairWantedID() == client.CharID() && (isForce || c.Pos() == client.Pos()) {
 				pairinfo := c.PairInfo()
 				args[17] = pairinfo.name

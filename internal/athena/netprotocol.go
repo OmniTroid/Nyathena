@@ -268,7 +268,11 @@ func pktIC(client *Client, p *packet.Packet) {
 		}
 	}
 
-	client.SetPos(args[5])
+	if pos := client.Pos(); pos != "" {
+		args[5] = pos
+	} else {
+		client.SetPos(args[5])
+	}
 
 	// Check and clean up expired punishments
 	if client.CheckExpiredPunishments() {

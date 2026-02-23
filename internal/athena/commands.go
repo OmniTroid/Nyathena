@@ -321,6 +321,13 @@ func initCommands() {
 			desc:     "Sends a private message.",
 			reqPerms: permissions.PermissionField["NONE"],
 		},
+		"pos": {
+			handler:  cmdPos,
+			minArgs:  0,
+			usage:    "Usage: /pos [position]",
+			desc:     "Shows your current position or changes it to the given position.",
+			reqPerms: permissions.PermissionField["NONE"],
+		},
 		"possess": {
 			handler:  cmdPossess,
 			minArgs:  2,
@@ -1767,6 +1774,28 @@ func cmdPM(client *Client, args []string, _ string) {
 	for _, c := range toPM {
 		c.SendPacket("CT", fmt.Sprintf("[PM] %v", client.OOCName()), msg, "1")
 	}
+}
+
+// validPositions is the set of positions a player can move to with /pos.
+var validPositions = []string{"def", "pro", "wit", "jud", "hld", "hlp", "jur", "sea"}
+
+// Handles /pos
+func cmdPos(client *Client, args []string, _ string) {
+	if len(args) == 0 {
+		client.SendServerMessage(fmt.Sprintf("Your current position is: %v\nAvailable positions: %v",
+			client.Pos(), strings.Join(validPositions, ", ")))
+		return
+	}
+	pos := strings.ToLower(args[0])
+	for _, v := range validPositions {
+		if pos == v {
+			client.SetPos(pos)
+			addToBuffer(client, "CMD", fmt.Sprintf("Changed position to %v.", pos), false)
+			client.SendServerMessage(fmt.Sprintf("Position changed to: %v", pos))
+			return
+		}
+	}
+	client.SendServerMessage(fmt.Sprintf("Invalid position. Available positions: %v", strings.Join(validPositions, ", ")))
 }
 
 // Handles /pair

@@ -52,7 +52,7 @@ var PacketMap = map[string]pktMapValue{
 	"RC":      {0, false, pktReqChar},
 	"RM":      {0, false, pktReqAM},
 	"RD":      {0, false, pktReqDone},
-	"CC":      {3, true, pktChangeChar},
+	"CC":      {2, true, pktChangeChar},
 	"MS":      {15, true, pktIC},
 	"MC":      {2, true, pktAM},
 	"HP":      {2, true, pktHP},

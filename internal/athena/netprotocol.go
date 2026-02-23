@@ -35,8 +35,8 @@ import (
 // Documentation for AO2's network protocol can be found here:
 // https://github.com/AttorneyOnline/docs/blob/master/docs/development/network.md
 
-// commandRegex matches valid command names (e.g., /join, /join-tournament)
-var commandRegex = regexp.MustCompile(`^/[a-z]+(-[a-z]+)*`)
+// commandRegex matches valid command names (e.g., /join, /join-tournament), case-insensitively.
+var commandRegex = regexp.MustCompile(`(?i)^/[a-z]+(-[a-z]+)*`)
 
 type pktMapValue struct {
 	Args     int
@@ -676,7 +676,7 @@ func pktOOC(client *Client, p *packet.Packet) {
 
 	if strings.HasPrefix(p.Body[1], "/") {
 		decoded := decode(p.Body[1])
-		command := strings.TrimPrefix(commandRegex.FindString(decoded), "/")
+		command := strings.ToLower(strings.TrimPrefix(commandRegex.FindString(decoded), "/"))
 		args := strings.Split(strings.Join(commandRegex.Split(decoded, 1), ""), " ")[1:]
 		ParseCommand(client, command, args)
 		return

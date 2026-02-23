@@ -29,6 +29,7 @@ import (
 	"github.com/MangosArentLiterature/Athena/internal/db"
 	"github.com/MangosArentLiterature/Athena/internal/logger"
 	"github.com/MangosArentLiterature/Athena/internal/packet"
+	"github.com/MangosArentLiterature/Athena/internal/permissions"
 	"github.com/MangosArentLiterature/Athena/internal/sliceutil"
 	"github.com/MangosArentLiterature/Athena/internal/webhook"
 )
@@ -779,7 +780,7 @@ func pktModcall(client *Client, p *packet.Packet) {
 	}
 	addToBuffer(client, "MOD", fmt.Sprintf("Called moderator for reason: %v", s), false)
 	for c := range clients.GetAllClients() {
-		if c.Authenticated() {
+		if c.Authenticated() && permissions.IsModerator(c.Perms()) {
 			c.SendPacket("ZZ", fmt.Sprintf("MODCALL\n----------\nArea: %v\nUser: [%v] %v\nIPID: %v\nReason: %v",
 				client.Area().Name(), client.Uid(), client.CurrentCharacter(), client.Ipid(), s))
 		}

@@ -20,6 +20,7 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"fmt"
+	"math/rand"
 	"regexp"
 	"strconv"
 	"strings"
@@ -148,11 +149,33 @@ func pktReqDone(client *Client, _ *packet.Packet) {
 	logger.LogInfof("Client (IPID:%v UID:%v) joined the server", client.Ipid(), client.Uid())
 }
 
+// getRandomFreeChar returns a random free character ID in the client's area,
+// or -1 if no characters are available.
+func getRandomFreeChar(client *Client) int {
+	var free []int
+	for i := range characters {
+		if !client.Area().IsTaken(i) {
+			free = append(free, i)
+		}
+	}
+	if len(free) == 0 {
+		return -1
+	}
+	return free[rand.Intn(len(free))]
+}
+
 // Handles CC#%
 func pktChangeChar(client *Client, p *packet.Packet) {
 	newid, err := strconv.Atoi(p.Body[1])
 	if err != nil {
 		return
+	}
+	// WebAO sends -1 to indicate random character selection.
+	if newid == -1 {
+		newid = getRandomFreeChar(client)
+		if newid == -1 {
+			return // No free characters available
+		}
 	}
 	client.ChangeCharacter(newid)
 }

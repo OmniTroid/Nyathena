@@ -314,6 +314,13 @@ func initCommands() {
 			desc:     "Cancels your current pair request or active pairing.",
 			reqPerms: permissions.PermissionField["NONE"],
 		},
+		"forceunpair": {
+			handler:  cmdForceUnpair,
+			minArgs:  1,
+			usage:    "Usage: /forceunpair <uid>",
+			desc:     "Forces a player to unpair from their current pair.",
+			reqPerms: permissions.PermissionField["KICK"],
+		},
 		"pm": {
 			handler:  cmdPM,
 			minArgs:  2,
@@ -1853,6 +1860,9 @@ func cmdPair(client *Client, args []string, _ string) {
 
 	// Check if the target is already requesting to pair with us (mutual pairing).
 	if target.PairWantedID() == client.CharID() {
+		// Establish UID-tracked pair on both sides so it persists across area changes.
+		client.SetForcePairUID(target.Uid())
+		target.SetForcePairUID(client.Uid())
 		client.SendServerMessage(fmt.Sprintf("Now pairing with %v.", target.OOCName()))
 		target.SendServerMessage(fmt.Sprintf("%v accepted your pair request.", client.OOCName()))
 	} else {
@@ -1892,11 +1902,6 @@ func cmdForcePair(client *Client, args []string, _ string) {
 		return
 	}
 
-	if target1.Area() != target2.Area() {
-		client.SendServerMessage("Those players are not in the same area.")
-		return
-	}
-
 	if target1.CharID() < 0 {
 		client.SendServerMessage(fmt.Sprintf("UID %v has not selected a character.", uid1))
 		return
@@ -1930,20 +1935,63 @@ func cmdUnpair(client *Client, _ []string, _ string) {
 		if partner, err := getClientByUid(client.ForcePairUID()); err == nil {
 			partner.SetForcePairUID(-1)
 			partner.SetPairWantedID(-1)
-			partner.SendServerMessage(fmt.Sprintf("%v has cancelled the force-pair.", client.OOCName()))
+			partner.SendServerMessage(fmt.Sprintf("%v has cancelled the pair.", client.OOCName()))
 		}
 		client.SetForcePairUID(-1)
 	}
 
 	// Notify any client that was paired with us.
 	for c := range clients.GetAllClients() {
-		if c != client && c.Area() == client.Area() && c.PairWantedID() == client.CharID() {
+		if c != client && c.PairWantedID() == client.CharID() {
 			c.SendServerMessage(fmt.Sprintf("%v has cancelled the pair.", client.OOCName()))
 		}
 	}
 
 	client.SetPairWantedID(-1)
 	client.SendServerMessage("Pair cancelled.")
+}
+
+// Handles /forceunpair
+func cmdForceUnpair(client *Client, args []string, _ string) {
+	uid, err := strconv.Atoi(args[0])
+	if err != nil {
+		client.SendServerMessage("Invalid UID.")
+		return
+	}
+
+	target, err := getClientByUid(uid)
+	if err != nil {
+		client.SendServerMessage(fmt.Sprintf("Client with UID %v does not exist.", uid))
+		return
+	}
+
+	if target.PairWantedID() == -1 && target.ForcePairUID() == -1 {
+		client.SendServerMessage("That player is not paired.")
+		return
+	}
+
+	// Clear the partner's pair state.
+	if target.ForcePairUID() >= 0 {
+		if partner, err := getClientByUid(target.ForcePairUID()); err == nil {
+			partner.SetForcePairUID(-1)
+			partner.SetPairWantedID(-1)
+			partner.SendServerMessage(fmt.Sprintf("You have been force-unpaired by %v.", client.OOCName()))
+		}
+		target.SetForcePairUID(-1)
+	}
+
+	// Notify any non-UID-tracked client that was paired with the target.
+	for c := range clients.GetAllClients() {
+		if c != target && c.PairWantedID() == target.CharID() {
+			c.SetPairWantedID(-1)
+			c.SendServerMessage(fmt.Sprintf("Your pair with %v was cancelled by %v.", target.OOCName(), client.OOCName()))
+		}
+	}
+
+	target.SetPairWantedID(-1)
+	target.SendServerMessage(fmt.Sprintf("You have been force-unpaired by %v.", client.OOCName()))
+	client.SendServerMessage(fmt.Sprintf("Force-unpaired %v.", target.OOCName()))
+	addToBuffer(client, "CMD", fmt.Sprintf("Force-unpaired UID %v.", uid), false)
 }
 
 // Handles /possess - one-time possession that mimics target's appearance for a single message

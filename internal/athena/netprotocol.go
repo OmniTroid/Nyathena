@@ -122,19 +122,7 @@ func pktReqChar(client *Client, _ *packet.Packet) {
 
 // Handles RM#%
 func pktReqAM(client *Client, _ *packet.Packet) {
-	const smChunkSize = 100
-	var allEntries []string
-	if areaNames != "" {
-		allEntries = strings.Split(areaNames, "#")
-	}
-	allEntries = append(allEntries, music...)
-	for i := 0; i < len(allEntries); i += smChunkSize {
-		end := i + smChunkSize
-		if end > len(allEntries) {
-			end = len(allEntries)
-		}
-		client.write("SM#" + strings.Join(allEntries[i:end], "#") + "#%")
-	}
+	client.write(fmt.Sprintf("SM#%v#%v#%%", areaNames, strings.Join(music, "#")))
 }
 
 // Handles RD#%

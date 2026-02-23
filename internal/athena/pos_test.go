@@ -82,3 +82,34 @@ func TestPosCommandChangesPosition(t *testing.T) {
 		}
 	}
 }
+
+// TestCommandRegexCaseInsensitive verifies that commandRegex matches /pos in any case,
+// and that the extracted command name is always lowercased for Commands map lookup.
+func TestCommandRegexCaseInsensitive(t *testing.T) {
+	tests := []struct {
+		input       string
+		wantCommand string
+		wantMatch   bool
+	}{
+		{"/pos", "pos", true},
+		{"/Pos", "pos", true},
+		{"/POS", "pos", true},
+		{"/pOs", "pos", true},
+		{"/join-tournament", "join-tournament", true},
+		{"/JOIN-TOURNAMENT", "join-tournament", true},
+		{"notacommand", "", false},
+		{"/123", "", false},
+	}
+
+	for _, tt := range tests {
+		match := commandRegex.FindString(tt.input)
+		command := strings.ToLower(strings.TrimPrefix(match, "/"))
+		gotMatch := match != ""
+		if gotMatch != tt.wantMatch {
+			t.Errorf("input=%q: expected match=%v, got match=%v", tt.input, tt.wantMatch, gotMatch)
+		}
+		if tt.wantMatch && command != tt.wantCommand {
+			t.Errorf("input=%q: expected command=%q, got %q", tt.input, tt.wantCommand, command)
+		}
+	}
+}

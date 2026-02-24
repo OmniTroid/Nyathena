@@ -24,7 +24,6 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -170,7 +169,7 @@ func InitServer(conf *settings.Config) error {
 	}
 
 	// Pre-compute the list of allowed WebSocket origins.
-	cachedAllowedOrigins = getAllowedOrigins(config.AssetURL)
+	cachedAllowedOrigins = getAllowedOrigins()
 	
 	// Initialize area logging if enabled
 	logger.EnableAreaLogging = conf.EnableAreaLogging
@@ -313,23 +312,10 @@ func ListenWSS() {
 	}
 }
 
-// getAllowedOrigins returns the list of allowed WebSocket origins based on the server configuration.
-func getAllowedOrigins(assetURL string) []string {
-	allowedOrigins := []string{"web.aceattorneyonline.com"}
-	
-	// If a custom asset URL is configured, extract and allow its origin
-	if assetURL != "" {
-		if parsedURL, err := url.Parse(assetURL); err == nil && parsedURL.Host != "" {
-			// Add the custom asset URL's host to allowed origins
-			allowedOrigins = append(allowedOrigins, parsedURL.Host)
-		} else {
-			// If parsing fails or no host is found, log a warning and only allow default origin
-			// This is safer than allowing all origins with a wildcard
-			logger.LogWarningf("Could not parse asset_url '%s', only allowing default WebAO origin. Please check your configuration.", assetURL)
-		}
-	}
-	
-	return allowedOrigins
+// getAllowedOrigins returns the list of allowed WebSocket origins.
+// All origins are permitted so that any WebAO client can connect regardless of where it is hosted.
+func getAllowedOrigins() []string {
+	return []string{"*"}
 }
 
 // HandleWS handles a websocket connection.

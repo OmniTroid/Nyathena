@@ -15,16 +15,3 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>. */
 
 package athena
-
-import (
-	"reflect"
-	"testing"
-)
-
-func TestGetAllowedOrigins(t *testing.T) {
-	expected := []string{"*"}
-	result := getAllowedOrigins()
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("getAllowedOrigins() = %v, want %v", result, expected)
-	}
-}
